@@ -1,0 +1,49 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const rateLimit = require('express-rate-limit');
+require('dotenv').config();
+const config = require('./config');
+
+const webhookRoutes = require('./routes/webhook');
+const buildRoutes   = require('./routes/builds');
+
+const app = express();
+
+app.use(cors({ origin: config.clientUrl }));
+
+// Rate limit API routes
+const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 120 });
+app.use('/api', apiLimiter);
+
+// Routes
+// Webhooks need the exact bytes GitHub signed; do not parse them as JSON first.
+app.use('/api/webhook', express.raw({ type: 'application/json', limit: '1mb' }), webhookRoutes);
+app.use(express.json({ limit: '1mb' }));
+app.use('/api/builds',  buildRoutes);
+
+app.get('/api/health', (_, res) => res.json({ status: 'ok', time: new Date() }));
+
+// Connect and start
+if (require.main === module) {
+  const missing = [
+    !process.env.MONGODB_URI && 'MONGODB_URI',
+    !config.apiToken && 'API_AUTH_TOKEN',
+    !config.allowedRepos.length && 'ALLOWED_REPOS',
+    config.webhookVerificationEnabled && !config.webhookSecret && 'GITHUB_SECRET',
+  ].filter(Boolean);
+  if (missing.length) {
+    console.error(`Missing required configuration: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+  mongoose
+  .connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log('✅ MongoDB connected');
+    const PORT = config.port;
+    app.listen(PORT, () => console.log(`🚀 CI/CD server on port ${PORT}`));
+  })
+  .catch(err => { console.error('DB error:', err); process.exit(1); });
+}
+
+module.exports = app;
