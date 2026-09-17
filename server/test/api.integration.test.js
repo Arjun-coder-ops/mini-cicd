@@ -54,3 +54,11 @@ test('atomic numbering is unique for concurrent MongoDB creates', async () => {
   assert.equal(new Set(numbers).size, 10);
   assert.deepEqual([...numbers].sort((a, b) => a - b), [1,2,3,4,5,6,7,8,9,10]);
 });
+
+test('healthcheck endpoint reports status and database connectivity', async () => {
+  const res = await request(app).get('/api/health');
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, 'ok');
+  assert.equal(res.body.database, 'connected');
+  assert.equal(typeof res.body.uptime, 'number');
+});

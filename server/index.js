@@ -22,7 +22,17 @@ app.use('/api/webhook', express.raw({ type: 'application/json', limit: '1mb' }),
 app.use(express.json({ limit: '1mb' }));
 app.use('/api/builds',  buildRoutes);
 
-app.get('/api/health', (_, res) => res.json({ status: 'ok', time: new Date() }));
+app.get('/api/health', (_, res) => {
+  const isDbConnected = mongoose.connection.readyState === 1;
+  const status = isDbConnected ? 'ok' : 'degraded';
+  const statusCode = isDbConnected ? 200 : 503;
+  res.status(statusCode).json({
+    status,
+    database: isDbConnected ? 'connected' : 'disconnected',
+    uptime: Math.floor(process.uptime()),
+    time: new Date(),
+  });
+});
 
 // Connect and start
 if (require.main === module) {
