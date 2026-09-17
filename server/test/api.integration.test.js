@@ -82,3 +82,13 @@ test('recoverOrphanedBuilds marks leftover queued and running builds as failed',
   assert.equal(failed.length, 2);
   assert.equal(success.length, 1);
 });
+
+test('serves client SPA index.html for non-API web routes when client/dist exists', async () => {
+  const res = await request(app).get('/dashboard');
+  if (require('fs').existsSync(require('path').join(__dirname, '../../client/dist/index.html'))) {
+    assert.equal(res.status, 200);
+    assert.match(res.text, /<html|<!doctype html>/i);
+  } else {
+    assert.equal(res.status, 404);
+  }
+});

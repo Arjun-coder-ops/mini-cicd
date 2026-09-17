@@ -1,3 +1,5 @@
+const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -33,6 +35,16 @@ app.get('/api/health', (_, res) => {
     time: new Date(),
   });
 });
+
+// Serve frontend production build when present
+const clientDist = path.join(__dirname, '../client/dist');
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 const { recoverOrphanedBuilds, cleanupActiveRuns } = require('./utils/pipeline');
 

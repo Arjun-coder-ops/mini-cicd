@@ -4,6 +4,8 @@
   "description": "Mini CI/CD Pipeline — GitHub webhook → build → deploy with live logs",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "start": "node server/index.js",
+    "build": "cd client && npm run build",
     "server": "cd server && npm run dev",
     "client": "cd client && npm run dev",
     "install:all": "npm install && cd server && npm install && cd ../client && npm install"
