@@ -25,7 +25,7 @@ const buildSchema = new mongoose.Schema(
     // Pipeline status
     status: {
       type: String,
-      enum: ['queued', 'running', 'success', 'failed', 'cancelled'],
+      enum: ['queued', 'running', 'success', 'failed', 'cancelled', 'timed_out'],
       default: 'queued',
     },
 

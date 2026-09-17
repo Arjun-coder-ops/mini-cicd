@@ -22,4 +22,5 @@ module.exports = {
   stepTimeoutMs: positiveInt(process.env.STEP_TIMEOUT_MS, 5 * 60 * 1000, 'STEP_TIMEOUT_MS'),
   pipelineTimeoutMs: positiveInt(process.env.PIPELINE_TIMEOUT_MS, 20 * 60 * 1000, 'PIPELINE_TIMEOUT_MS'),
   deployKnownHostsPath: process.env.DEPLOY_KNOWN_HOSTS_PATH || '',
+  gitBaseUrl: (process.env.GIT_BASE_URL || 'https://github.com').replace(/\/$/, ''),
 };

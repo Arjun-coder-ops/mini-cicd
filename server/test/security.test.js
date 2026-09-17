@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 const { tokensMatch } = require('../utils/auth');
 const { verifySignature } = require('../routes/webhook');
 const { validateRepo, validateBranch, validateCommit, validateBuildId, validatePagination, ValidationError } = require('../utils/validation');
+const Build = require('../models/Build');
 
 const signedRequest = (body, signature) => ({ body, headers: { 'x-hub-signature-256': signature } });
 test('accepts a valid raw GitHub signature', () => {
@@ -28,4 +29,7 @@ test('validates branch, commit, build IDs, and pagination bounds', () => {
   assert.equal(validateBranch('feature/api'), 'feature/api'); assert.throws(() => validateBranch('../bad'), ValidationError);
   assert.equal(validateCommit('abcdef0'), 'abcdef0'); assert.throws(() => validateCommit('command;rm'), ValidationError);
   assert.throws(() => validateBuildId('invalid'), ValidationError); assert.deepEqual(validatePagination({ page: '2', limit: '100' }), { page: 2, limit: 100 }); assert.throws(() => validatePagination({ limit: '101' }), ValidationError);
+});
+test('build status schema allows timed_out', () => {
+  assert.equal(Build.schema.path('status').enumValues.includes('timed_out'), true);
 });

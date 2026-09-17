@@ -68,7 +68,13 @@ router.post('/', async (req, res) => {
     res.status(202).json({ buildId: build._id, buildNumber: build.number });
 
     // Run pipeline in background (no await)
-    runPipeline(build._id.toString()).catch(console.error);
+    runPipeline(build._id.toString()).catch(async err => {
+      console.error(err);
+      await Build.findOneAndUpdate(
+        { _id: build._id, status: { $nin: ['success', 'failed', 'cancelled', 'timed_out'] } },
+        { status: 'failed', finishedAt: new Date(), duration: 0 }
+      ).catch(console.error);
+    });
 
   } catch (err) {
     if (err instanceof ValidationError) return res.status(403).json({ error: err.message });

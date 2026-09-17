@@ -48,6 +48,7 @@ VITE_API_AUTH_TOKEN=the_same_value_as_API_AUTH_TOKEN
 | `STEP_TIMEOUT_MS` | No | Per-command timeout, default 300000 |
 | `PIPELINE_TIMEOUT_MS` | No | Overall timeout, default 1200000 |
 | `BUILDS_DIR` | No | Build/log directory, default `.tmp/cicd-builds` |
+| `GIT_BASE_URL` | No | Git base URL, default `https://github.com`; useful for local fixtures |
 | `CLIENT_URL` | No | Allowed frontend origin |
 | `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH`, `DEPLOY_KEY_PATH` | No | Enable deployment |
 | `DEPLOY_KNOWN_HOSTS_PATH` | For deploy | Existing known-hosts file for strict SSH verification |

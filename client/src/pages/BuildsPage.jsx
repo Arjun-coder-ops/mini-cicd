@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 import BuildRow from '../components/ui/BuildRow';
 
-const STATUSES = ['', 'success', 'failed', 'running', 'queued', 'cancelled'];
+const STATUSES = ['', 'success', 'failed', 'running', 'queued', 'cancelled', 'timed_out'];
 
 export default function BuildsPage() {
   const [builds, setBuilds] = useState([]);

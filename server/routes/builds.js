@@ -59,6 +59,7 @@ router.get('/stats', async (req, res) => {
       recent,
     });
   } catch (err) {
+    if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 });
@@ -71,6 +72,7 @@ router.get('/:id', async (req, res) => {
     if (!build) return res.status(404).json({ error: 'Build not found' });
     res.json({ build });
   } catch (err) {
+    if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 });
@@ -96,7 +98,13 @@ router.post('/trigger', async (req, res) => {
     res.status(201).json({ build });
 
     // Run pipeline async
-    runPipeline(build._id.toString()).catch(console.error);
+    runPipeline(build._id.toString()).catch(async err => {
+      console.error(err);
+      await Build.findOneAndUpdate(
+        { _id: build._id, status: { $nin: ['success', 'failed', 'cancelled', 'timed_out'] } },
+        { status: 'failed', finishedAt: new Date(), duration: 0 }
+      ).catch(console.error);
+    });
   } catch (err) {
     if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
     res.status(500).json({ error: err.message });
@@ -140,7 +148,13 @@ router.post('/:id/retry', async (req, res) => {
     });
 
     res.status(201).json({ build: newBuild });
-    runPipeline(newBuild._id.toString()).catch(console.error);
+    runPipeline(newBuild._id.toString()).catch(async err => {
+      console.error(err);
+      await Build.findOneAndUpdate(
+        { _id: newBuild._id, status: { $nin: ['success', 'failed', 'cancelled', 'timed_out'] } },
+        { status: 'failed', finishedAt: new Date(), duration: 0 }
+      ).catch(console.error);
+    });
   } catch (err) {
     if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
     res.status(500).json({ error: err.message });

@@ -4,6 +4,7 @@ export const STATUS_ICON = {
   running:   '◌',
   queued:    '○',
   cancelled: '–',
+  timed_out: '!',
   pending:   '○',
 };
 

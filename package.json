@@ -1,7 +1,7 @@
 {
   "name": "mini-cicd",
   "version": "1.0.0",
-  "description": "Mini CI/CD Pipeline — GitHub webhook → Docker build → deploy with live logs",
+  "description": "Mini CI/CD Pipeline — GitHub webhook → build → deploy with live logs",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd server && npm run dev",

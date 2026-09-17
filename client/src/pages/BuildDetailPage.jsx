@@ -245,7 +245,7 @@ export default function BuildDetailPage() {
             {['queued', 'running'].includes(build.status) && (
               <button className="btn btn-danger" onClick={handleCancel}>✕ Cancel</button>
             )}
-            {['success', 'failed', 'cancelled'].includes(build.status) && (
+            {['success', 'failed', 'cancelled', 'timed_out'].includes(build.status) && (
               <button className="btn btn-success" onClick={handleRetry}>↺ Retry</button>
             )}
           </div>
