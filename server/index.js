@@ -34,6 +34,8 @@ app.get('/api/health', (_, res) => {
   });
 });
 
+const { recoverOrphanedBuilds, cleanupActiveRuns } = require('./utils/pipeline');
+
 // Connect and start
 if (require.main === module) {
   const missing = [
@@ -48,10 +50,28 @@ if (require.main === module) {
   }
   mongoose
   .connect(process.env.MONGODB_URI)
-  .then(() => {
+  .then(async () => {
     console.log('✅ MongoDB connected');
+    await recoverOrphanedBuilds();
     const PORT = config.port;
-    app.listen(PORT, () => console.log(`🚀 CI/CD server on port ${PORT}`));
+    const server = app.listen(PORT, () => console.log(`🚀 CI/CD server on port ${PORT}`));
+
+    const shutdown = async (signal) => {
+      console.log(`\nReceived ${signal}, shutting down gracefully...`);
+      server.close(async () => {
+        await cleanupActiveRuns();
+        await mongoose.connection.close();
+        console.log('👋 Server shut down cleanly');
+        process.exit(0);
+      });
+      setTimeout(() => {
+        console.error('Forcing shutdown after timeout');
+        process.exit(1);
+      }, 10000).unref();
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
   })
   .catch(err => { console.error('DB error:', err); process.exit(1); });
 }

@@ -116,4 +116,29 @@ const runPipeline = async id => {
   } catch (err) { const status = state.cancelled || err.code === 'cancelled' ? 'cancelled' : state.timedOut || err.code === 'timed_out' ? 'timed_out' : 'failed'; await finish(build, status, logFile, `${status}: ${err.message}`); }
   finally { clearTimeout(overall); activeRuns.delete(id); await fsp.rm(workDir, { recursive: true, force: true }).catch(() => {}); }
 };
-module.exports = { runPipeline, cancelPipeline, hasCapacity, addSseClient, removeSseClient, broadcast, PipelineError, resolveCmd };
+const recoverOrphanedBuilds = async () => {
+  const result = await Build.updateMany(
+    { status: { $in: ['queued', 'running'] } },
+    { status: 'failed', finishedAt: new Date(), duration: 0 }
+  );
+  if (result.modifiedCount > 0) {
+    console.log(`🧹 Recovered ${result.modifiedCount} orphaned build(s) left in non-terminal state`);
+  }
+  return result.modifiedCount;
+};
+
+const cleanupActiveRuns = async () => {
+  if (!activeRuns.size) return;
+  const runningIds = Array.from(activeRuns.keys());
+  for (const [, state] of activeRuns) {
+    state.cancelled = true;
+    kill(state);
+  }
+  activeRuns.clear();
+  await Build.updateMany(
+    { _id: { $in: runningIds }, status: { $nin: TERMINAL } },
+    { status: 'cancelled', finishedAt: new Date() }
+  );
+};
+
+module.exports = { runPipeline, cancelPipeline, hasCapacity, addSseClient, removeSseClient, broadcast, PipelineError, resolveCmd, recoverOrphanedBuilds, cleanupActiveRuns };

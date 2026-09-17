@@ -62,3 +62,23 @@ test('healthcheck endpoint reports status and database connectivity', async () =
   assert.equal(res.body.database, 'connected');
   assert.equal(typeof res.body.uptime, 'number');
 });
+
+test('recoverOrphanedBuilds marks leftover queued and running builds as failed', async () => {
+  const { recoverOrphanedBuilds } = require('../utils/pipeline');
+  await Build.create({ repo: 'acme/demo', branch: 'main', commit: 'abcdef01', status: 'queued' });
+  await Build.create({ repo: 'acme/demo', branch: 'main', commit: 'abcdef02', status: 'running' });
+  await Build.create({ repo: 'acme/demo', branch: 'main', commit: 'abcdef03', status: 'success' });
+
+  const recovered = await recoverOrphanedBuilds();
+  assert.equal(recovered, 2);
+
+  const queued = await Build.find({ status: 'queued' });
+  const running = await Build.find({ status: 'running' });
+  const failed = await Build.find({ status: 'failed' });
+  const success = await Build.find({ status: 'success' });
+
+  assert.equal(queued.length, 0);
+  assert.equal(running.length, 0);
+  assert.equal(failed.length, 2);
+  assert.equal(success.length, 1);
+});
