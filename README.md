@@ -76,4 +76,50 @@ cd client; npm.cmd audit --omit=dev
 
 ## Deployment
 
-Without deployment configuration, the deploy stage is simulated. With it, the runner syncs `dist` when present (otherwise the working directory) and restarts PM2. The target must already be present in `DEPLOY_KNOWN_HOSTS_PATH`.
+### Pipeline Target Deployment
+
+Without target deployment configuration, the pipeline's deploy stage is simulated. When configured with `DEPLOY_HOST` and `DEPLOY_KEY_PATH`, the runner syncs `dist` (or working directory) via `rsync` over SSH and restarts PM2. The target host key must pre-exist in `DEPLOY_KNOWN_HOSTS_PATH`.
+
+### Deploying the Mini CI/CD Application
+
+You can host Mini CI/CD either as a unified single service or as decoupled frontend/backend services:
+
+#### Option 1: Unified Service (Render / Railway / VPS)
+
+The Express server serves the compiled React frontend from `client/dist` with SPA fallback routing for any non-API request.
+
+1. **Build command**:
+   ```bash
+   npm run install:all && npm run build
+   ```
+2. **Start command**:
+   ```bash
+   npm start
+   ```
+3. **Environment variables**:
+   - `MONGODB_URI`: MongoDB connection string
+   - `API_AUTH_TOKEN`: Secret Bearer token for API authentication
+   - `ALLOWED_REPOS`: Comma-separated list of `owner/repo`
+   - `GITHUB_SECRET`: GitHub webhook secret
+   - `CLIENT_URL`: URL of the app (e.g. `https://mini-cicd.onrender.com`)
+4. **Health check endpoint**:
+   - `/api/health` returns `200 OK` with database status and uptime. Returns `503` if MongoDB disconnects.
+
+#### Option 2: Decoupled Deployment (Vercel + Cloud Backend)
+
+1. **Backend (Render / Fly.io / Railway)**:
+   - Root directory: `server`
+   - Build: `npm install`
+   - Start: `npm start`
+   - Set `CLIENT_URL=https://your-app.vercel.app` for strict CORS.
+2. **Frontend (Vercel / Netlify / Cloudflare Pages)**:
+   - Root directory: `client`
+   - Build command: `npm run build`
+   - Output directory: `dist`
+   - Environment variable: `VITE_API_AUTH_TOKEN=your_api_auth_token`
+   - Configure rewrite in `vercel.json` to proxy `/api/*` to your backend URL.
+
+### Process Resilience & Recovery
+
+- **Orphaned build recovery**: On startup, the server automatically recovers builds left in `queued` or `running` state from an unexpected crash or container restart, transitioning them to `failed`.
+- **Graceful shutdown**: When receiving `SIGTERM` or `SIGINT`, active runner processes are terminated, runs marked cancelled, and database connections closed cleanly within a 10-second window.
