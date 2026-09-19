@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Filter, X, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../utils/api';
 import BuildRow from '../components/ui/BuildRow';
 
@@ -85,16 +86,19 @@ export default function BuildsPage() {
             onChange={e => setDraft(p => ({ ...p, repo: e.target.value }))}
             style={{ width: 180 }} />
         </div>
-        <button type="submit" className="btn btn-ghost">Filter</button>
+        <button type="submit" className="btn btn-ghost"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <Filter size={13} aria-hidden="true" /> Filter
+        </button>
         {hasFilters && (
           <button type="button" className="btn btn-ghost" onClick={clearFilters}
-            style={{ color: 'var(--red)' }}>
-            × Clear
+            style={{ color: 'var(--red)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <X size={14} aria-hidden="true" /> Clear
           </button>
         )}
         <button type="button" className="btn btn-ghost" onClick={fetchBuilds}
-          style={{ marginLeft: 'auto' }}>
-          ↻ Refresh
+          style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <RefreshCw size={13} className={loading ? 'spin' : ''} aria-hidden="true" /> Refresh
         </button>
       </form>
 
@@ -128,8 +132,9 @@ export default function BuildsPage() {
       {pages > 1 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 18 }}>
           <button className="btn btn-ghost" disabled={page <= 1}
-            onClick={() => setPage(p => p - 1)} style={{ padding: '6px 12px' }}>
-            ← Prev
+            onClick={() => setPage(p => p - 1)}
+            style={{ padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <ChevronLeft size={14} aria-hidden="true" /> Prev
           </button>
           {Array.from({ length: Math.min(pages, 7) }, (_, i) => {
             const p = i + 1;
@@ -142,8 +147,9 @@ export default function BuildsPage() {
             );
           })}
           <button className="btn btn-ghost" disabled={page >= pages}
-            onClick={() => setPage(p => p + 1)} style={{ padding: '6px 12px' }}>
-            Next →
+            onClick={() => setPage(p => p + 1)}
+            style={{ padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            Next <ChevronRight size={14} aria-hidden="true" />
           </button>
         </div>
       )}

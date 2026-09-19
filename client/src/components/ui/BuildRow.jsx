@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { STATUS_ICON, fmtDuration, timeAgo } from '../../utils/helpers';
+import { fmtDuration, timeAgo } from '../../utils/helpers';
+import StatusIcon from './StatusIcon';
 
 export default function BuildRow({ build, compact }) {
   const navigate = useNavigate();
@@ -42,7 +43,8 @@ export default function BuildRow({ build, compact }) {
 
       {/* Status badge */}
       <span className={`status status-${s}`}>
-        {STATUS_ICON[s]} {s}
+        <StatusIcon status={s} size={12} />
+        <span>{s}</span>
       </span>
 
       {/* Duration */}

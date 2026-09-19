@@ -1,7 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  FolderGit2,
+  GitBranch,
+  GitCommitHorizontal,
+  User,
+  Clock,
+  Square,
+  RotateCcw,
+  ArrowRight,
+  ArrowDown,
+  Download,
+} from 'lucide-react';
 import api from '../utils/api';
-import { STATUS_ICON, fmtDuration, fmtTime } from '../utils/helpers';
+import { fmtDuration, fmtTime } from '../utils/helpers';
+import StatusIcon from '../components/ui/StatusIcon';
 import toast from 'react-hot-toast';
 
 const STEP_ORDER = ['clone', 'install', 'build', 'test', 'deploy'];
@@ -24,12 +38,8 @@ const StepBadge = ({ step }) => {
       display: 'flex', flexDirection: 'column', gap: 4,
       minWidth: 90,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        {s === 'running' ? (
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--blue)', animation: 'pulse 1s infinite', display: 'inline-block' }} />
-        ) : (
-          <span style={{ fontSize: 13, color: c.color }}>{STATUS_ICON[s]}</span>
-        )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <StatusIcon status={s} size={13} style={{ color: c.color }} />
         <span style={{ fontSize: 11, fontWeight: 700, color: c.color, fontFamily: 'var(--mono)' }}>
           {step?.name}
         </span>
@@ -182,8 +192,8 @@ export default function BuildDetailPage() {
     <div className="fade-in">
       {/* Back */}
       <button className="btn btn-ghost" onClick={() => navigate('/builds')}
-        style={{ marginBottom: 18, padding: '6px 12px', fontSize: 12 }}>
-        ← All builds
+        style={{ marginBottom: 18, padding: '6px 12px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <ArrowLeft size={14} aria-hidden="true" /> All builds
       </button>
 
       {/* Header */}
@@ -195,7 +205,7 @@ export default function BuildDetailPage() {
                 Build #{build.number}
               </span>
               <span className={`status status-${build.status}`}>
-                {STATUS_ICON[build.status]} {build.status}
+                <StatusIcon status={build.status} size={12} /> {build.status}
               </span>
               {streaming && (
                 <span style={{ fontSize: 11, color: 'var(--blue)', fontFamily: 'var(--mono)', animation: 'pulse 1s infinite' }}>
@@ -204,19 +214,23 @@ export default function BuildDetailPage() {
               )}
             </div>
             <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, color: 'var(--text2)' }}>
-                📁 <span style={{ fontFamily: 'var(--mono)', color: 'var(--text)' }}>{build.repo}</span>
+              <span style={{ fontSize: 12, color: 'var(--text2)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <FolderGit2 size={13} aria-hidden="true" style={{ color: 'var(--text3)' }} />
+                <span style={{ fontFamily: 'var(--mono)', color: 'var(--text)' }}>{build.repo}</span>
               </span>
-              <span style={{ fontSize: 12, color: 'var(--text2)' }}>
-                🌿 <span style={{ fontFamily: 'var(--mono)', color: 'var(--blue)' }}>{build.branch}</span>
+              <span style={{ fontSize: 12, color: 'var(--text2)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <GitBranch size={13} aria-hidden="true" style={{ color: 'var(--blue)' }} />
+                <span style={{ fontFamily: 'var(--mono)', color: 'var(--blue)' }}>{build.branch}</span>
               </span>
-              <span style={{ fontSize: 12, color: 'var(--text2)' }}>
-                🔖 <span style={{ fontFamily: 'var(--mono)', color: 'var(--cyan)' }}>{build.commitShort}</span>
+              <span style={{ fontSize: 12, color: 'var(--text2)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <GitCommitHorizontal size={13} aria-hidden="true" style={{ color: 'var(--cyan)' }} />
+                <span style={{ fontFamily: 'var(--mono)', color: 'var(--cyan)' }}>{build.commitShort}</span>
                 {build.commitMsg && <span style={{ color: 'var(--text3)', marginLeft: 6 }}>{build.commitMsg}</span>}
               </span>
               {build.author && (
-                <span style={{ fontSize: 12, color: 'var(--text2)' }}>
-                  👤 {build.author}
+                <span style={{ fontSize: 12, color: 'var(--text2)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <User size={13} aria-hidden="true" style={{ color: 'var(--text3)' }} />
+                  {build.author}
                 </span>
               )}
             </div>
@@ -230,8 +244,8 @@ export default function BuildDetailPage() {
                 </span>
               )}
               {build.duration && (
-                <span style={{ fontSize: 11, color: statusColors[build.status] || 'var(--text3)', fontFamily: 'var(--mono)', fontWeight: 600 }}>
-                  ⏱ {fmtDuration(build.duration)}
+                <span style={{ fontSize: 11, color: statusColors[build.status] || 'var(--text3)', fontFamily: 'var(--mono)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Clock size={12} aria-hidden="true" /> {fmtDuration(build.duration)}
                 </span>
               )}
               <span style={{ fontSize: 11, color: 'var(--text3)' }}>
@@ -243,10 +257,16 @@ export default function BuildDetailPage() {
           {/* Actions */}
           <div style={{ display: 'flex', gap: 8 }}>
             {['queued', 'running'].includes(build.status) && (
-              <button className="btn btn-danger" onClick={handleCancel}>✕ Cancel</button>
+              <button className="btn btn-danger" onClick={handleCancel}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <Square size={12} aria-hidden="true" /> Cancel
+              </button>
             )}
             {['success', 'failed', 'cancelled', 'timed_out'].includes(build.status) && (
-              <button className="btn btn-success" onClick={handleRetry}>↺ Retry</button>
+              <button className="btn btn-success" onClick={handleRetry}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <RotateCcw size={13} aria-hidden="true" /> Retry
+              </button>
             )}
           </div>
         </div>
@@ -262,7 +282,7 @@ export default function BuildDetailPage() {
             <div key={step.name} style={{ display: 'flex', alignItems: 'center' }}>
               <StepBadge step={step} />
               {i < mergedSteps.length - 1 && (
-                <span style={{ color: 'var(--text3)', margin: '0 3px', fontSize: 14 }}>→</span>
+                <ArrowRight size={12} style={{ color: 'var(--text3)', margin: '0 3px', flexShrink: 0 }} aria-hidden="true" />
               )}
             </div>
           ))}
@@ -293,13 +313,13 @@ export default function BuildDetailPage() {
             </label>
             <button className="btn btn-ghost"
               onClick={() => { setAutoScroll(true); if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }}
-              style={{ padding: '3px 8px', fontSize: 11 }}>
-              ↓ Bottom
+              style={{ padding: '3px 8px', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <ArrowDown size={12} aria-hidden="true" /> Bottom
             </button>
             <button className="btn btn-ghost"
               onClick={() => { const t = logs.join('\n'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([t])); a.download = `build-${build.number}.log`; a.click(); }}
-              style={{ padding: '3px 8px', fontSize: 11 }}>
-              ↓ Download
+              style={{ padding: '3px 8px', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Download size={12} aria-hidden="true" /> Download
             </button>
           </div>
         </div>

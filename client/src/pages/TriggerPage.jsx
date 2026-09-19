@@ -1,7 +1,28 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Play,
+  Webhook,
+  Copy,
+  Workflow,
+  FolderGit2,
+  Package,
+  Hammer,
+  FlaskConical,
+  Rocket,
+  Info,
+  LoaderCircle,
+} from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
+
+const STEP_ICONS = {
+  clone: FolderGit2,
+  install: Package,
+  build: Hammer,
+  test: FlaskConical,
+  deploy: Rocket,
+};
 
 export default function TriggerPage() {
   const navigate = useNavigate();
@@ -36,7 +57,9 @@ export default function TriggerPage() {
 
       {/* Manual trigger */}
       <div className="card" style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 16 }}>▶ Manual trigger</div>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Play size={14} aria-hidden="true" /> Manual trigger
+        </div>
         <form onSubmit={handleTrigger} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
             <label className="label">Repository</label>
@@ -64,8 +87,16 @@ export default function TriggerPage() {
             </div>
           </div>
           <button type="submit" className="btn btn-primary" disabled={loading}
-            style={{ alignSelf: 'flex-start', padding: '9px 20px' }}>
-            {loading ? 'Starting...' : '▶ Run pipeline'}
+            style={{ alignSelf: 'flex-start', padding: '9px 20px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            {loading ? (
+              <>
+                <LoaderCircle size={14} className="spin" aria-hidden="true" /> Starting...
+              </>
+            ) : (
+              <>
+                <Play size={14} aria-hidden="true" /> Run pipeline
+              </>
+            )}
           </button>
         </form>
       </div>
@@ -73,7 +104,9 @@ export default function TriggerPage() {
       {/* GitHub webhook setup */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>🔔 GitHub webhook setup</div>
+          <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Webhook size={15} aria-hidden="true" /> GitHub webhook setup
+          </div>
           <button onClick={() => setWebhookInfo(!webhookInfo)} className="btn btn-ghost"
             style={{ padding: '4px 10px', fontSize: 11 }}>
             {webhookInfo ? 'Hide' : 'Show'} guide
@@ -90,8 +123,8 @@ export default function TriggerPage() {
             </code>
             <button className="btn btn-ghost"
               onClick={() => { navigator.clipboard.writeText(`${serverUrl}/api/webhook`); toast.success('Copied!'); }}
-              style={{ padding: '4px 10px', fontSize: 11, flexShrink: 0 }}>
-              Copy
+              style={{ padding: '4px 10px', fontSize: 11, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Copy size={12} aria-hidden="true" /> Copy
             </button>
           </div>
         </div>
@@ -123,29 +156,38 @@ export default function TriggerPage() {
 
       {/* What happens during a build */}
       <div className="card">
-        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>🔧 What the pipeline does</div>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Workflow size={15} aria-hidden="true" /> What the pipeline does
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
           {[
-            { icon: '📥', step: 'clone',   desc: 'git clone --depth 1 your repo at the specified branch + commit' },
-            { icon: '📦', step: 'install', desc: 'npm ci (Node.js) or pip install -r requirements.txt (Python)' },
-            { icon: '🔨', step: 'build',   desc: 'npm run build — skipped if no build script found' },
-            { icon: '✅', step: 'test',    desc: 'npm test — pipeline stops here if tests fail' },
-            { icon: '🚀', step: 'deploy',  desc: 'rsync to VPS + pm2 restart — or simulation if DEPLOY_HOST not set' },
-          ].map(({ icon, step, desc }, i, arr) => (
-            <div key={step} style={{
-              display: 'flex', gap: 12, padding: '10px 0',
-              borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
-            }}>
-              <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>{icon}</span>
-              <div>
-                <span style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, color: 'var(--cyan)' }}>{step}</span>
-                <span style={{ fontSize: 12, color: 'var(--text2)', marginLeft: 10 }}>{desc}</span>
+            { step: 'clone',   desc: 'git clone --depth 1 your repo at the specified branch + commit' },
+            { step: 'install', desc: 'npm ci (Node.js) or pip install -r requirements.txt (Python)' },
+            { step: 'build',   desc: 'npm run build — skipped if no build script found' },
+            { step: 'test',    desc: 'npm test — pipeline stops here if tests fail' },
+            { step: 'deploy',  desc: 'rsync to VPS + pm2 restart — or simulation if DEPLOY_HOST not set' },
+          ].map(({ step, desc }, i, arr) => {
+            const Icon = STEP_ICONS[step] || Workflow;
+            return (
+              <div key={step} style={{
+                display: 'flex', gap: 12, padding: '10px 0',
+                borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                alignItems: 'center',
+              }}>
+                <Icon size={16} style={{ color: 'var(--cyan)', flexShrink: 0 }} aria-hidden="true" />
+                <div>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, color: 'var(--cyan)' }}>{step}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text2)', marginLeft: 10 }}>{desc}</span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
-        <div style={{ marginTop: 14, padding: '10px 12px', background: 'var(--blue-dim)', borderRadius: 8, border: '1px solid rgba(91,156,246,.15)', fontSize: 12, color: 'var(--blue)' }}>
-          💡 Set <code style={{ fontFamily: 'var(--mono)' }}>DEPLOY_HOST</code>, <code style={{ fontFamily: 'var(--mono)' }}>DEPLOY_USER</code>, <code style={{ fontFamily: 'var(--mono)' }}>DEPLOY_PATH</code> and <code style={{ fontFamily: 'var(--mono)' }}>DEPLOY_KEY_PATH</code> in <code style={{ fontFamily: 'var(--mono)' }}>server/.env</code> to enable real deployment. Without these, the deploy step runs in simulation mode.
+        <div style={{ marginTop: 14, padding: '10px 12px', background: 'var(--blue-dim)', borderRadius: 8, border: '1px solid rgba(91,156,246,.15)', fontSize: 12, color: 'var(--blue)', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+          <Info size={15} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
+          <div>
+            Set <code style={{ fontFamily: 'var(--mono)' }}>DEPLOY_HOST</code>, <code style={{ fontFamily: 'var(--mono)' }}>DEPLOY_USER</code>, <code style={{ fontFamily: 'var(--mono)' }}>DEPLOY_PATH</code> and <code style={{ fontFamily: 'var(--mono)' }}>DEPLOY_KEY_PATH</code> in <code style={{ fontFamily: 'var(--mono)' }}>server/.env</code> to enable real deployment. Without these, the deploy step runs in simulation mode.
+          </div>
         </div>
       </div>
     </div>

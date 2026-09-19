@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Play, ArrowRight, GitBranch, Webhook, FolderGit2, Package, Hammer, FlaskConical, Rocket } from 'lucide-react';
 import api from '../utils/api';
 import BuildRow from '../components/ui/BuildRow';
 import { fmtDuration } from '../utils/helpers';
@@ -42,8 +43,9 @@ export default function DashboardPage() {
           <h1 style={{ fontSize: 20, fontWeight: 600, fontFamily: 'var(--mono)' }}>Pipeline Dashboard</h1>
           <p style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3 }}>Auto-refreshes every 8s</p>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('/trigger')}>
-          ▶ Trigger build
+        <button className="btn btn-primary" onClick={() => navigate('/trigger')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Play size={14} aria-hidden="true" /> Trigger build
         </button>
       </div>
 
@@ -64,8 +66,8 @@ export default function DashboardPage() {
             {stats.running} build{stats.running > 1 ? 's' : ''} currently running
           </span>
           <button className="btn btn-ghost" onClick={() => navigate('/builds?status=running')}
-            style={{ marginLeft: 'auto', padding: '4px 10px', fontSize: 11 }}>
-            View →
+            style={{ marginLeft: 'auto', padding: '4px 10px', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            View <ArrowRight size={12} aria-hidden="true" />
           </button>
         </div>
       )}
@@ -75,8 +77,8 @@ export default function DashboardPage() {
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 13, fontWeight: 600 }}>Recent builds</span>
           <button className="btn btn-ghost" onClick={() => navigate('/builds')}
-            style={{ padding: '4px 10px', fontSize: 11 }}>
-            All builds →
+            style={{ padding: '4px 10px', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            All builds <ArrowRight size={12} aria-hidden="true" />
           </button>
         </div>
 
@@ -101,24 +103,27 @@ export default function DashboardPage() {
         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 14 }}>Pipeline flow</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 0, fontFamily: 'var(--mono)', fontSize: 11 }}>
           {[
-            { label: 'git push', icon: '⬆', color: 'var(--blue)' },
-            { label: 'webhook', icon: '🔔', color: 'var(--purple)' },
-            { label: 'clone', icon: '📥', color: 'var(--cyan)' },
-            { label: 'install', icon: '📦', color: 'var(--amber)' },
-            { label: 'build', icon: '🔨', color: 'var(--amber)' },
-            { label: 'test', icon: '✅', color: 'var(--green)' },
-            { label: 'deploy', icon: '🚀', color: 'var(--green)' },
-          ].map((step, i, arr) => (
-            <div key={step.label} style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 12px', background: 'var(--bg3)', borderRadius: 8, border: `1px solid var(--border2)` }}>
-                <span style={{ fontSize: 16 }}>{step.icon}</span>
-                <span style={{ color: step.color, fontSize: 10 }}>{step.label}</span>
+            { label: 'git push', icon: GitBranch, color: 'var(--blue)' },
+            { label: 'webhook', icon: Webhook, color: 'var(--purple)' },
+            { label: 'clone', icon: FolderGit2, color: 'var(--cyan)' },
+            { label: 'install', icon: Package, color: 'var(--amber)' },
+            { label: 'build', icon: Hammer, color: 'var(--amber)' },
+            { label: 'test', icon: FlaskConical, color: 'var(--green)' },
+            { label: 'deploy', icon: Rocket, color: 'var(--green)' },
+          ].map((step, i, arr) => {
+            const Icon = step.icon;
+            return (
+              <div key={step.label} style={{ display: 'flex', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '8px 12px', background: 'var(--bg3)', borderRadius: 8, border: `1px solid var(--border2)` }}>
+                  <Icon size={16} style={{ color: step.color }} aria-hidden="true" />
+                  <span style={{ color: step.color, fontSize: 10 }}>{step.label}</span>
+                </div>
+                {i < arr.length - 1 && (
+                  <ArrowRight size={13} style={{ color: 'var(--text3)', margin: '0 6px', flexShrink: 0 }} aria-hidden="true" />
+                )}
               </div>
-              {i < arr.length - 1 && (
-                <span style={{ color: 'var(--text3)', margin: '0 4px', fontSize: 14 }}>→</span>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
