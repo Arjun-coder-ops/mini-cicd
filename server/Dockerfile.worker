@@ -1,0 +1,25 @@
+FROM node:20-alpine
+
+ENV NODE_ENV=production
+
+WORKDIR /app
+
+# Install dependencies required by the worker
+RUN apk add --no-cache git rsync openssh python3 py3-pip
+
+COPY package*.json ./
+RUN npm ci --only=production --legacy-peer-deps
+
+COPY . .
+
+# Run as non-root user
+# Node user is created by node:20-alpine image
+RUN chown -R node:node /app
+USER node
+
+# Healthcheck for worker (can check if process is running)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD ps aux | grep "node index.js" | grep -v grep || exit 1
+
+# Start the worker
+CMD ["node", "index.js"]

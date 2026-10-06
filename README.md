@@ -4,14 +4,16 @@ A portfolio CI/CD dashboard: GitHub push webhooks or authenticated manual trigge
 
 ## Architecture
 
-```text
-React/Vite dashboard -> Express API -> MongoDB
-                         |              |
-                         +-> in-process pipeline runner -> Git, npm/pip, optional SSH deploy
-                                                        -> filesystem logs -> SSE
-```
+The system is fully Dockerized into discrete services:
+- **frontend**: Nginx container for the React/Vite SPA.
+- **api**: Express API backend.
+- **worker**: BullMQ pipeline runner executing clones, builds, and deploys.
+- **mongodb**: Persistent database.
+- **redis**: BullMQ and pub/sub.
 
-This is an in-process runner, not Docker-isolated, distributed, or a production-grade sandbox.
+See [docs/DOCKER.md](docs/DOCKER.md) for more details.
+
+This worker runs within its own container but does not sandbox individual pipelines; it is not a secure production-grade sandbox.
 
 ## Pipeline
 
@@ -23,17 +25,12 @@ This is an in-process runner, not Docker-isolated, distributed, or a production-
 
 ## Setup
 
-```powershell
-npm.cmd run install:all
-Copy-Item server/.env.example server/.env
-npm.cmd run dev
+```bash
+cp .env.example .env
+docker compose up -d
 ```
 
-The frontend runs at `http://localhost:5174`; the backend at `http://localhost:4000`. For UI requests create `client/.env.local`:
-
-```env
-VITE_API_AUTH_TOKEN=the_same_value_as_API_AUTH_TOKEN
-```
+The frontend runs at `http://localhost`; the backend at `http://localhost:3000`.
 
 ## Environment
 

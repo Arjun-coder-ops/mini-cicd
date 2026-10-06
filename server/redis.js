@@ -6,11 +6,15 @@ if (process.env.NODE_ENV === 'test') {
   connection = new RedisMock({ maxRetriesPerRequest: null });
 } else {
   const Redis = require('ioredis');
-  connection = new Redis(process.env.REDIS_URL || {
-    host: process.env.REDIS_HOST || '127.0.0.1',
-    port: process.env.REDIS_PORT || 6379,
-    maxRetriesPerRequest: null,
-  });
+  if (process.env.REDIS_URL) {
+    connection = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: null });
+  } else {
+    connection = new Redis({
+      host: process.env.REDIS_HOST || '127.0.0.1',
+      port: process.env.REDIS_PORT || 6379,
+      maxRetriesPerRequest: null,
+    });
+  }
 }
 
 module.exports = { connection };
