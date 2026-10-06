@@ -82,7 +82,7 @@ export default function BuildDetailPage() {
     setStreaming(true);
     setLogs([]);
 
-    const token = import.meta.env.VITE_API_AUTH_TOKEN;
+    const token = getAccessToken();
     const qs = `projectId=${projectId}` + (token ? `&token=${encodeURIComponent(token)}` : '');
     const es = new EventSource(`/api/builds/${buildId}/stream?${qs}`);
     esRef.current = es;

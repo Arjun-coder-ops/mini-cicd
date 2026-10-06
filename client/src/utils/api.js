@@ -5,11 +5,26 @@ const api = axios.create({ baseURL: '/api' });
 
 let isRefreshing = false;
 let failedQueue = [];
+let accessToken = null;
+
+export const setAccessToken = (token) => {
+  accessToken = token;
+  if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common['Authorization'];
+  }
+};
+
+export const getAccessToken = () => accessToken;
 
 const processQueue = (error, token = null) => {
   failedQueue.forEach(prom => {
     if (error) { prom.reject(error); }
-    else { prom.resolve(token); }
+    else { 
+      prom.config.headers['Authorization'] = `Bearer ${token}`;
+      prom.resolve(api(prom.config));
+    }
   });
   failedQueue = [];
 };
@@ -21,11 +36,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url.includes('/auth/login')) {
       if (isRefreshing) {
         return new Promise(function(resolve, reject) {
-          failedQueue.push({ resolve, reject });
-        }).then(() => {
-          return api(originalRequest);
-        }).catch(err => {
-          return Promise.reject(err);
+          failedQueue.push({ resolve, reject, config: originalRequest });
         });
       }
 
@@ -33,12 +44,15 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        await axios.post('/api/auth/refresh');
-        processQueue(null);
+        const res = await axios.post('/api/auth/refresh');
+        const newToken = res.data.accessToken;
+        setAccessToken(newToken);
+        processQueue(null, newToken);
+        originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
         return api(originalRequest);
       } catch (err) {
         processQueue(err);
-        if (window.location.pathname !== '/login') {
+        if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
           toast.error('Session expired. Please login again.');
           window.location.href = '/login';
         }
@@ -48,7 +62,6 @@ api.interceptors.response.use(
       }
     }
     
-    // Only throw toast on some mutations or let components handle it
     return Promise.reject(error);
   }
 );
