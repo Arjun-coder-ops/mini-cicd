@@ -9,6 +9,7 @@ import Layout from './components/ui/Layout';
 import DashboardPage from './pages/DashboardPage';
 import ProjectOverview from './pages/projects/ProjectOverview';
 import ProjectsPage from './pages/projects/ProjectsPage';
+import NewProjectPage from './pages/projects/NewProjectPage';
 import DeploymentsPage from './pages/projects/DeploymentsPage';
 import MembersPage from './pages/projects/MembersPage';
 import ApiKeysPage from './pages/projects/ApiKeysPage';
@@ -41,6 +42,7 @@ export default function App() {
           <Route index element={<Navigate to="/projects" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="projects" element={<ProjectsPage />} />
+          <Route path="projects/new" element={<NewProjectPage />} />
           <Route path="projects/:projectId" element={<ProjectOverview />} />
           <Route path="projects/:projectId/builds" element={<BuildsPage />} />
           <Route path="projects/:projectId/builds/:id" element={<BuildDetailPage />} />

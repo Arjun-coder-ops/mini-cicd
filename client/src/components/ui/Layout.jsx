@@ -68,7 +68,7 @@ export default function Layout() {
               fontSize: 13, fontWeight: 500,
               background: isActive ? 'var(--bg4)' : 'transparent',
               color: isActive ? 'var(--text)' : 'var(--text2)',
-              borderLeft: \`2px solid \${isActive ? 'var(--blue)' : 'transparent'}\`,
+              borderLeft: `2px solid ${isActive ? 'var(--blue)' : 'transparent'}`,
               transition: 'all .1s',
             })}>
               <Icon size={16} style={{ flexShrink: 0 }} />

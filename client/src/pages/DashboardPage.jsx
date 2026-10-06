@@ -1,130 +1,88 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Play, ArrowRight, GitBranch, Webhook, FolderGit2, Package, Hammer, FlaskConical, Rocket } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Activity, Folder, Package, Settings, ChevronRight } from 'lucide-react';
 import api from '../utils/api';
-import BuildRow from '../components/ui/BuildRow';
-import { fmtDuration } from '../utils/helpers';
-
-const STAT = ({ label, value, sub, color }) => (
-  <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-    <div style={{ fontSize: 11, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>{label}</div>
-    <div style={{ fontSize: 28, fontWeight: 700, color: color || 'var(--text)', fontFamily: 'var(--mono)' }}>{value}</div>
-    {sub && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{sub}</div>}
-  </div>
-);
+import { useAuth } from '../contexts/AuthContext';
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   const navigate = useNavigate();
-
-  const fetchStats = useCallback(async () => {
-    try {
-      const { data } = await api.get('/builds/stats');
-      setStats(data);
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
-  }, []);
+  const [projects, setProjects] = useState([]);
+  const [metrics, setMetrics] = useState({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 8000); // auto-refresh
-    return () => clearInterval(interval);
-  }, [fetchStats]);
+    Promise.all([
+      api.get('/projects'),
+      api.get('/metrics').catch(() => ({ data: '' })) // if metrics fail, ignore
+    ]).then(([projRes, metricsRes]) => {
+      setProjects(projRes.data.projects.slice(0, 5)); // show top 5
+      
+      // extremely basic parsing of prometheus metrics
+      const lines = typeof metricsRes.data === 'string' ? metricsRes.data.split('\\n') : [];
+      const m = {};
+      lines.forEach(l => {
+        if (!l.startsWith('#') && l.includes(' ')) {
+          const [key, val] = l.split(' ');
+          m[key] = parseInt(val, 10);
+        }
+      });
+      setMetrics(m);
+    }).catch(console.error).finally(() => setLoading(false));
+  }, []);
 
-  if (loading) return (
-    <div style={{ padding: 40, color: 'var(--text2)', fontFamily: 'var(--mono)' }}>Loading...</div>
-  );
+  if (loading) return <div>Loading dashboard...</div>;
 
   return (
     <div className="fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 600, fontFamily: 'var(--mono)' }}>Pipeline Dashboard</h1>
-          <p style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3 }}>Auto-refreshes every 8s</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => navigate('/trigger')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <Play size={14} aria-hidden="true" /> Trigger build
-        </button>
+      <div style={{ marginBottom: 30 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 600 }}>Welcome back, {user?.name}</h1>
+        <p style={{ color: 'var(--text2)' }}>Here is what's happening across your platform.</p>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 24 }}>
-        <STAT label="Total builds"   value={stats?.total || 0}        color="var(--text)" />
-        <STAT label="Success"        value={stats?.success || 0}       color="var(--green)" />
-        <STAT label="Failed"         value={stats?.failed || 0}        color="var(--red)" />
-        <STAT label="Success rate"   value={`${stats?.successRate || 0}%`}   color={stats?.successRate >= 80 ? 'var(--green)' : 'var(--amber)'} />
-        <STAT label="Avg duration"   value={`${stats?.avgDuration || 0}s`}  color="var(--blue)" />
+      {/* Global metrics */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 15, marginBottom: 30 }}>
+        <div className="card">
+          <div className="label">Total Builds</div>
+          <div style={{ fontSize: 28, fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--mono)' }}>{metrics.builds_total || 0}</div>
+        </div>
+        <div className="card">
+          <div className="label">Total Success</div>
+          <div style={{ fontSize: 28, fontWeight: 600, color: 'var(--green)', fontFamily: 'var(--mono)' }}>{metrics.builds_success_total || 0}</div>
+        </div>
+        <div className="card">
+          <div className="label">Total Deployments</div>
+          <div style={{ fontSize: 28, fontWeight: 600, color: 'var(--blue)', fontFamily: 'var(--mono)' }}>{metrics.deployment_total || 0}</div>
+        </div>
+        <div className="card">
+          <div className="label">Webhooks Received</div>
+          <div style={{ fontSize: 28, fontWeight: 600, color: 'var(--purple)', fontFamily: 'var(--mono)' }}>{metrics.webhook_total || 0}</div>
+        </div>
       </div>
 
-      {/* Running builds */}
-      {stats?.running > 0 && (
-        <div style={{ background: 'var(--blue-dim)', border: '1px solid rgba(91,156,246,.25)', borderRadius: 10, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--blue)', animation: 'pulse 1s infinite', display: 'inline-block' }} />
-          <span style={{ fontSize: 13, color: 'var(--blue)', fontWeight: 500 }}>
-            {stats.running} build{stats.running > 1 ? 's' : ''} currently running
-          </span>
-          <button className="btn btn-ghost" onClick={() => navigate('/builds?status=running')}
-            style={{ marginLeft: 'auto', padding: '4px 10px', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            View <ArrowRight size={12} aria-hidden="true" />
-          </button>
-        </div>
-      )}
-
-      {/* Recent builds */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Recent builds</span>
-          <button className="btn btn-ghost" onClick={() => navigate('/builds')}
-            style={{ padding: '4px 10px', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            All builds <ArrowRight size={12} aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Table header */}
-        <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 140px 100px 90px', gap: 14, padding: '8px 18px', borderBottom: '1px solid var(--border)' }}>
-          {['Build', 'Repository', 'Status', 'Duration', 'When'].map(h => (
-            <span key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</span>
-          ))}
-        </div>
-
-        {!stats?.recent?.length ? (
-          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text3)', fontFamily: 'var(--mono)', fontSize: 12 }}>
-            no builds yet — trigger one or push to GitHub
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+        <h3 style={{ fontSize: 16 }}>Your Recent Projects</h3>
+        <Link to="/projects" className="btn btn-ghost" style={{ fontSize: 12 }}>View all</Link>
+      </div>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
+        {projects.length === 0 ? (
+          <div className="card flex-center" style={{ padding: 40, flexDirection: 'column', gap: 10 }}>
+            <Folder size={32} color="var(--text3)" />
+            <p style={{ color: 'var(--text2)' }}>You don't have any projects yet.</p>
+            <button onClick={() => navigate('/projects/new')} className="btn btn-primary" style={{ marginTop: 10 }}>Create Project</button>
           </div>
         ) : (
-          stats.recent.map(b => <BuildRow key={b._id} build={b} />)
-        )}
-      </div>
-
-      {/* Pipeline diagram */}
-      <div className="card" style={{ marginTop: 20 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 14 }}>Pipeline flow</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 0, fontFamily: 'var(--mono)', fontSize: 11 }}>
-          {[
-            { label: 'git push', icon: GitBranch, color: 'var(--blue)' },
-            { label: 'webhook', icon: Webhook, color: 'var(--purple)' },
-            { label: 'clone', icon: FolderGit2, color: 'var(--cyan)' },
-            { label: 'install', icon: Package, color: 'var(--amber)' },
-            { label: 'build', icon: Hammer, color: 'var(--amber)' },
-            { label: 'test', icon: FlaskConical, color: 'var(--green)' },
-            { label: 'deploy', icon: Rocket, color: 'var(--green)' },
-          ].map((step, i, arr) => {
-            const Icon = step.icon;
-            return (
-              <div key={step.label} style={{ display: 'flex', alignItems: 'center' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '8px 12px', background: 'var(--bg3)', borderRadius: 8, border: `1px solid var(--border2)` }}>
-                  <Icon size={16} style={{ color: step.color }} aria-hidden="true" />
-                  <span style={{ color: step.color, fontSize: 10 }}>{step.label}</span>
-                </div>
-                {i < arr.length - 1 && (
-                  <ArrowRight size={13} style={{ color: 'var(--text3)', margin: '0 6px', flexShrink: 0 }} aria-hidden="true" />
-                )}
+          projects.map(p => (
+            <Link key={p._id} to={`/projects/${p._id}`} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', transition: 'all 0.2s' }}>
+              <div>
+                <h4 style={{ color: 'var(--text)', margin: 0, fontSize: 15 }}>{p.name}</h4>
+                <p style={{ color: 'var(--text2)', margin: 0, fontSize: 13, marginTop: 4 }}>{p.repository}</p>
               </div>
-            );
-          })}
-        </div>
+              <ChevronRight color="var(--text3)" />
+            </Link>
+          ))
+        )}
       </div>
     </div>
   );

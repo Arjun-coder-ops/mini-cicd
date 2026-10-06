@@ -67,7 +67,7 @@ export default function BuildDetailPage() {
   // Fetch build data
   const fetchBuild = useCallback(async () => {
     try {
-      const { data } = await api.get(`/builds/${id}`);
+      const { data } = await api.get(`/builds/${id}?projectId=${projectId}`);
       setBuild(data.build);
       return data.build;
     } catch {
@@ -83,7 +83,8 @@ export default function BuildDetailPage() {
     setLogs([]);
 
     const token = import.meta.env.VITE_API_AUTH_TOKEN;
-    const es = new EventSource(`/api/builds/${buildId}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`);
+    const qs = `projectId=${projectId}` + (token ? `&token=${encodeURIComponent(token)}` : '');
+    const es = new EventSource(`/api/builds/${buildId}/stream?${qs}`);
     esRef.current = es;
 
     es.onmessage = (e) => {
@@ -127,7 +128,7 @@ export default function BuildDetailPage() {
         connectStream(b._id);
       } else {
         // Load static logs
-        api.get(`/builds/${b._id}/logs`).then(({ data }) => {
+        api.get(`/builds/${b._id}/logs?projectId=${projectId}`).then(({ data }) => {
           setLogs(data.logs ? data.logs.split('\n').filter(Boolean) : []);
         });
       }
@@ -144,7 +145,7 @@ export default function BuildDetailPage() {
 
   const handleCancel = async () => {
     try {
-      await api.post(`/builds/${id}/cancel`);
+      await api.post(`/builds/${id}/cancel?projectId=${projectId}`);
       toast.success('Build cancelled');
       if (esRef.current) esRef.current.close();
       fetchBuild();
@@ -155,7 +156,7 @@ export default function BuildDetailPage() {
 
   const handleRetry = async () => {
     try {
-      const { data } = await api.post(`/builds/${id}/retry`);
+      const { data } = await api.post(`/builds/${id}/retry?projectId=${projectId}`);
       toast.success(`Retry started — Build #${data.build.number}`);
       navigate(`/builds/${data.build._id}`);
     } catch (err) {
