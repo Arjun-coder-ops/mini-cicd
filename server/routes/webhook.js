@@ -31,10 +31,22 @@ router.post('/', async (req, res) => {
     }
 
     const event = req.headers['x-github-event'];
+    const deliveryId = req.headers['x-github-delivery'];
 
     // Only handle push events
     if (event !== 'push') {
       return res.status(200).json({ message: `Ignored event: ${event}` });
+    }
+
+    const payloadHash = crypto.createHash('sha256').update(req.body).digest('hex');
+    const WebhookDelivery = require('../models/WebhookDelivery');
+    if (deliveryId) {
+      try {
+        await WebhookDelivery.create({ deliveryId, eventType: event, payloadHash });
+      } catch (err) {
+        if (err.code === 11000) return res.status(200).json({ message: 'Duplicate webhook' });
+        throw err;
+      }
     }
 
     let payload;
