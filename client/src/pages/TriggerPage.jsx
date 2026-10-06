@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   Play,
   Webhook,
@@ -25,6 +25,7 @@ const STEP_ICONS = {
 };
 
 export default function TriggerPage() {
+  const { projectId } = useParams();
   const navigate = useNavigate();
   const [form, setForm] = useState({ repo: '', branch: 'main', commit: 'HEAD' });
   const [loading, setLoading] = useState(false);
@@ -36,9 +37,9 @@ export default function TriggerPage() {
     if (!form.repo.includes('/')) { toast.error('Format must be owner/repo'); return; }
     setLoading(true);
     try {
-      const { data } = await api.post('/builds/trigger', form);
+      const { data } = await api.post('/builds/trigger', { ...form, projectId });
       toast.success(`Build #${data.build.number} started!`);
-      navigate(`/builds/${data.build._id}`);
+      navigate(`/projects/${projectId}/builds/${data.build._id}`);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to trigger build');
     } finally { setLoading(false); }

@@ -7,7 +7,7 @@ export default function BuildRow({ build, compact }) {
   const s = build.status;
 
   return (
-    <div onClick={() => navigate(`/builds/${build._id}`)}
+    <div onClick={() => navigate(`/projects/${build.projectId}/builds/${build._id}`)}
       style={{
         display: 'grid',
         gridTemplateColumns: compact ? '80px 1fr 120px 80px' : '80px 1fr 140px 100px 90px',

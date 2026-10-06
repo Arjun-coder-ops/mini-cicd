@@ -3,9 +3,12 @@ import { Filter, X, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../utils/api';
 import BuildRow from '../components/ui/BuildRow';
 
+import { useParams } from 'react-router-dom';
+
 const STATUSES = ['', 'success', 'failed', 'running', 'queued', 'cancelled', 'timed_out'];
 
 export default function BuildsPage() {
+  const { projectId } = useParams();
   const [builds, setBuilds] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -17,7 +20,7 @@ export default function BuildsPage() {
   const fetchBuilds = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page, limit: 25 });
+      const params = new URLSearchParams({ page, limit: 25, projectId });
       if (filters.status) params.set('status', filters.status);
       if (filters.branch) params.set('branch', filters.branch);
       if (filters.repo)   params.set('repo',   filters.repo);
@@ -26,7 +29,7 @@ export default function BuildsPage() {
       setTotal(data.total);
       setPages(data.pages);
     } finally { setLoading(false); }
-  }, [page, filters]);
+  }, [page, filters, projectId]);
 
   useEffect(() => { fetchBuilds(); }, [fetchBuilds]);
 

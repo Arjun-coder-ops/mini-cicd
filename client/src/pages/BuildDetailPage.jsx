@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   FolderGit2,
@@ -54,7 +54,7 @@ const StepBadge = ({ step }) => {
 };
 
 export default function BuildDetailPage() {
-  const { id } = useParams();
+  const { projectId, id } = useParams();
   const navigate = useNavigate();
   const [build, setBuild] = useState(null);
   const [logs, setLogs] = useState([]);
@@ -72,7 +72,7 @@ export default function BuildDetailPage() {
       return data.build;
     } catch {
       toast.error('Build not found');
-      navigate('/builds');
+      navigate(`/projects/${projectId}/builds`);
     } finally { setLoading(false); }
   }, [id]);
 
