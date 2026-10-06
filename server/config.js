@@ -15,6 +15,8 @@ module.exports = {
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5174',
   buildsDir: path.resolve(process.env.BUILDS_DIR || path.join(process.cwd(), '.tmp', 'cicd-builds')),
   apiToken: process.env.API_AUTH_TOKEN || '',
+  jwtSecret: process.env.JWT_SECRET || 'fallback-jwt-secret-for-dev',
+  refreshTokenSecret: process.env.REFRESH_TOKEN_SECRET || 'fallback-refresh-secret-for-dev',
   webhookSecret: process.env.GITHUB_SECRET || '',
   webhookVerificationEnabled: process.env.WEBHOOK_VERIFICATION_ENABLED !== 'false',
   allowedRepos,

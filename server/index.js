@@ -4,15 +4,21 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 const config = require('./config');
 
 const webhookRoutes = require('./routes/webhook');
 const buildRoutes   = require('./routes/builds');
+const authRoutes    = require('./routes/auth');
+const projectRoutes = require('./routes/projects');
+const { router: secretsRoutes } = require('./routes/secrets');
+const metricsRoutes = require('./routes/metrics');
 
 const app = express();
 
-app.use(cors({ origin: config.clientUrl }));
+app.use(cors({ origin: config.clientUrl, credentials: true }));
+app.use(cookieParser());
 
 // Rate limit API routes
 const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 120 });
@@ -22,7 +28,11 @@ app.use('/api', apiLimiter);
 // Webhooks need the exact bytes GitHub signed; do not parse them as JSON first.
 app.use('/api/webhook', express.raw({ type: 'application/json', limit: '1mb' }), webhookRoutes);
 app.use(express.json({ limit: '1mb' }));
+app.use('/api/auth', authRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/projects', secretsRoutes);
 app.use('/api/builds',  buildRoutes);
+app.use('/api/metrics', metricsRoutes);
 
 app.get('/api/health', (_, res) => {
   const isDbConnected = mongoose.connection.readyState === 1;
@@ -47,6 +57,7 @@ if (fs.existsSync(clientDist)) {
 }
 
 const { recoverOrphanedBuilds, cleanupActiveRuns } = require('./utils/pipeline');
+const { buildWorker } = require('./workers/buildWorker');
 
 // Connect and start
 if (require.main === module) {
@@ -71,6 +82,7 @@ if (require.main === module) {
     const shutdown = async (signal) => {
       console.log(`\nReceived ${signal}, shutting down gracefully...`);
       server.close(async () => {
+        await buildWorker.close();
         await cleanupActiveRuns();
         await mongoose.connection.close();
         console.log('👋 Server shut down cleanly');
