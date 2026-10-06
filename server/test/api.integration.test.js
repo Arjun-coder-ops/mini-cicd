@@ -8,20 +8,35 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const mongoose = require('mongoose');
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
 const app = require('../index');
 const Build = require('../models/Build');
 const Counter = require('../models/Counter');
+const User = require('../models/User');
 
 const uri = 'mongodb://127.0.0.1:27017/mini_cicd_phase21_test';
-const auth = { Authorization: 'Bearer integration-token' };
+let validToken = '';
+let auth = {};
+let testProject;
 const payload = { ref: 'refs/heads/main', after: 'abcdef0123456789', repository: { full_name: 'acme/demo' }, head_commit: { id: 'abcdef0123456789', message: 'test', author: { name: 'tester' } } };
 
-test.before(async () => { await mongoose.connect(uri); await mongoose.connection.dropDatabase(); });
+test.before(async () => {
+  await mongoose.connect(uri);
+  await mongoose.connection.dropDatabase();
+  const user = await User.create({ email: 'test@example.com', passwordHash: 'hash', name: 'tester' });
+  validToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET || 'fallback-jwt-secret-for-dev');
+  auth = { Authorization: `Bearer ${validToken}` };
+  
+  const Project = require('../models/Project');
+  const ProjectMember = require('../models/ProjectMember');
+  testProject = await Project.create({ name: 'Test', slug: 'test', ownerId: user._id, repository: 'acme/demo' });
+  await ProjectMember.create({ projectId: testProject._id, userId: user._id, role: 'OWNER' });
+});
 test.after(async () => { await mongoose.connection.dropDatabase(); await mongoose.disconnect(); });
 test.beforeEach(async () => { await Build.deleteMany({}); await Counter.deleteMany({}); });
 
 test('protected endpoints reject missing and invalid credentials', async () => {
-  for (const endpoint of ['/api/builds', '/api/builds/507f1f77bcf86cd799439011', '/api/builds/507f1f77bcf86cd799439011/logs']) {
+  for (const endpoint of [`/api/builds?projectId=${testProject._id}`, '/api/builds/507f1f77bcf86cd799439011', '/api/builds/507f1f77bcf86cd799439011/logs']) {
     assert.equal((await request(app).get(endpoint)).status, 401);
     assert.equal((await request(app).get(endpoint).set('Authorization', 'Bearer wrong')).status, 401);
   }
@@ -30,12 +45,12 @@ test('protected endpoints reject missing and invalid credentials', async () => {
 });
 
 test('authenticated API accepts valid requests and rejects invalid trigger/query values', async () => {
-  assert.equal((await request(app).get('/api/builds').set(auth)).status, 200);
+  assert.equal((await request(app).get(`/api/builds?projectId=${testProject._id}`).set(auth)).status, 200);
   for (const body of [{ repo: 'other/repo' }, { repo: 'invalid' }, { repo: 'acme/demo', branch: '../bad' }, { repo: 'acme/demo', commit: 'not-a-sha' }]) {
-    assert.equal((await request(app).post('/api/builds/trigger').set(auth).send(body)).status, 400);
+    assert.equal((await request(app).post(`/api/builds/trigger?projectId=${testProject._id}`).set(auth).send(body)).status, 400);
   }
-  assert.equal((await request(app).get('/api/builds?page=-1').set(auth)).status, 400);
-  assert.equal((await request(app).get('/api/builds?limit=101').set(auth)).status, 400);
+  assert.equal((await request(app).get(`/api/builds?projectId=${testProject._id}&page=-1`).set(auth)).status, 400);
+  assert.equal((await request(app).get(`/api/builds?projectId=${testProject._id}&limit=101`).set(auth)).status, 400);
   assert.equal((await request(app).get('/api/builds/not-an-id').set(auth)).status, 400);
 });
 

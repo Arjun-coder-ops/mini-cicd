@@ -2,18 +2,18 @@ const express = require('express');
 const fs = require('fs');
 const Build = require('../models/Build');
 const { runPipeline, cancelPipeline, hasCapacity, addSseClient, removeSseClient } = require('../utils/pipeline');
-const { requireApiAuth } = require('../utils/auth');
+const { requireAuth, requireProjectRole } = require('../middleware/auth');
 const { ValidationError, validateRepo, validateBranch, validateCommit, validateBuildId, validatePagination } = require('../utils/validation');
 
 const router = express.Router();
-router.use(requireApiAuth);
+router.use(requireAuth);
 
 // GET /api/builds — List builds (paginated)
-router.get('/', async (req, res) => {
+router.get('/', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VIEWER']), async (req, res) => {
   try {
     const { page, limit } = validatePagination(req.query);
     const skip  = (page - 1) * limit;
-    const filter = {};
+    const filter = { projectId: req.query.projectId || req.body.projectId };
     if (req.query.status) filter.status = req.query.status;
     if (req.query.repo)   filter.repo   = req.query.repo;
     if (req.query.branch) filter.branch = req.query.branch;
@@ -31,21 +31,22 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/builds/stats — Dashboard stats
-router.get('/stats', async (req, res) => {
+router.get('/stats', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VIEWER']), async (req, res) => {
+    const projectId = req.query.projectId;
   try {
     const [total, success, failed, running] = await Promise.all([
-      Build.countDocuments(),
-      Build.countDocuments({ status: 'success' }),
-      Build.countDocuments({ status: 'failed' }),
-      Build.countDocuments({ status: { $in: ['queued', 'running'] } }),
+      Build.countDocuments({ projectId, projectId }),
+      Build.countDocuments({ projectId, status: 'success' }),
+      Build.countDocuments({ projectId, status: 'failed' }),
+      Build.countDocuments({ projectId, status: { $in: ['queued', 'running'] } }),
     ]);
 
     const avgDurationResult = await Build.aggregate([
-      { $match: { status: 'success', duration: { $exists: true, $gt: 0 } } },
+      { $match: { projectId: new (require('mongoose').Types.ObjectId)(projectId), status: 'success', duration: { $exists: true, $gt: 0 } } },
       { $group: { _id: null, avg: { $avg: '$duration' } } },
     ]);
 
-    const recent = await Build.find().sort({ number: -1 }).limit(5);
+    const recent = await Build.find({ projectId }).sort({ number: -1 }).limit(5);
 
     res.json({
       total,
@@ -65,7 +66,7 @@ router.get('/stats', async (req, res) => {
 });
 
 // GET /api/builds/:id — Single build
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VIEWER']), async (req, res) => {
   try {
     validateBuildId(req.params.id);
     const build = await Build.findById(req.params.id);
@@ -78,12 +79,18 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/builds/trigger — Manual build trigger
-router.post('/trigger', async (req, res) => {
+router.post('/trigger', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER']), async (req, res) => {
   try {
     const repo = validateRepo(req.body.repo);
     const branch = validateBranch(req.body.branch || 'main');
     const commit = validateCommit(req.body.commit || 'HEAD');
     if (!hasCapacity()) return res.status(429).json({ error: 'Pipeline capacity reached; try again later' });
+
+    const idempotencyKey = req.headers['idempotency-key'];
+    if (idempotencyKey) {
+      const existing = await Build.findOne({ idempotencyKey });
+      if (existing) return res.status(200).json({ build: existing, idempotency: true });
+    }
 
     const build = await Build.create({
       repo,
@@ -92,7 +99,9 @@ router.post('/trigger', async (req, res) => {
       commitMsg: 'Manual trigger',
       author: 'manual',
       trigger: 'manual',
+      projectId: req.query.projectId || req.body.projectId,
       status: 'queued',
+      idempotencyKey
     });
 
     res.status(201).json({ build });
@@ -112,7 +121,7 @@ router.post('/trigger', async (req, res) => {
 });
 
 // POST /api/builds/:id/cancel — Cancel a running build
-router.post('/:id/cancel', async (req, res) => {
+router.post('/:id/cancel', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER']), async (req, res) => {
   try {
     validateBuildId(req.params.id);
     const build = await Build.findById(req.params.id);
@@ -130,7 +139,7 @@ router.post('/:id/cancel', async (req, res) => {
 });
 
 // POST /api/builds/:id/retry — Re-run a failed build
-router.post('/:id/retry', async (req, res) => {
+router.post('/:id/retry', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER']), async (req, res) => {
   try {
     validateBuildId(req.params.id);
     if (!hasCapacity()) return res.status(429).json({ error: 'Pipeline capacity reached; try again later' });
@@ -138,6 +147,7 @@ router.post('/:id/retry', async (req, res) => {
     if (!original) return res.status(404).json({ error: 'Build not found' });
 
     const newBuild = await Build.create({
+      projectId: original.projectId,
       repo:      original.repo,
       branch:    original.branch,
       commit:    original.commit,
@@ -162,7 +172,7 @@ router.post('/:id/retry', async (req, res) => {
 });
 
 // GET /api/builds/:id/logs — Full log file
-router.get('/:id/logs', async (req, res) => {
+router.get('/:id/logs', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VIEWER']), async (req, res) => {
   try {
     validateBuildId(req.params.id);
     const build = await Build.findById(req.params.id);
@@ -179,7 +189,7 @@ router.get('/:id/logs', async (req, res) => {
 });
 
 // GET /api/builds/:id/stream — SSE log stream
-router.get('/:id/stream', async (req, res) => {
+router.get('/:id/stream', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VIEWER']), async (req, res) => {
   let build;
   try { validateBuildId(req.params.id); build = await Build.findById(req.params.id); }
   catch { return res.status(400).json({ error: 'invalid build ID' }); }
