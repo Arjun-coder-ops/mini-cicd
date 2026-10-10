@@ -18,7 +18,7 @@ const getSecret = (envVar, defaultVal) => {
 
 module.exports = {
   port: positiveInt(process.env.PORT, 4000, 'PORT'),
-  clientUrl: process.env.CLIENT_URL || 'http://localhost:5174',
+  clientUrl: (process.env.CLIENT_URL || (process.env.NODE_ENV === 'production' ? 'https://mini-cicd.vercel.app' : 'http://localhost:5174')).replace(/\/$/, ''),
   buildsDir: path.resolve(process.env.BUILDS_DIR || path.join(process.cwd(), '.tmp', 'cicd-builds')),
   jwtSecret: getSecret('JWT_SECRET', 'fallback-jwt-secret-for-dev'),
   refreshTokenSecret: getSecret('REFRESH_TOKEN_SECRET', 'fallback-refresh-secret-for-dev'),
