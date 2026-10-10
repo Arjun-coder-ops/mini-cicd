@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Play,
@@ -30,6 +30,20 @@ export default function TriggerPage() {
   const [form, setForm] = useState({ repo: '', branch: 'main', commit: 'HEAD' });
   const [loading, setLoading] = useState(false);
   const [webhookInfo, setWebhookInfo] = useState(false);
+
+  useEffect(() => {
+    if (projectId) {
+      api.get(`/projects/${projectId}`).then(res => {
+        if (res.data?.project) {
+          setForm(f => ({
+            ...f,
+            repo: res.data.project.repository || f.repo,
+            branch: res.data.project.defaultBranch || f.branch,
+          }));
+        }
+      }).catch(console.error);
+    }
+  }, [projectId]);
 
   const handleTrigger = async (e) => {
     e.preventDefault();

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../utils/api';
-import { Activity, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Activity, Clock, AlertCircle, CheckCircle2, Play } from 'lucide-react';
 
 export default function ProjectOverview() {
   const { projectId } = useParams();
@@ -15,7 +15,7 @@ export default function ProjectOverview() {
       api.get(`/builds?projectId=${projectId}&limit=5`)
     ]).then(([projRes, buildRes]) => {
       setProject(projRes.data.project);
-      setBuilds(buildRes.data.builds);
+      setBuilds(buildRes.data?.builds || []);
     }).catch(err => console.error(err))
       .finally(() => setLoading(false));
   }, [projectId]);
@@ -25,9 +25,16 @@ export default function ProjectOverview() {
 
   return (
     <div>
-      <div style={{ marginBottom: 30 }}>
-        <h2>{project.name}</h2>
-        <p style={{ color: 'var(--text2)' }}>{project.repository}</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
+        <div>
+          <h2>{project.name}</h2>
+          <p style={{ color: 'var(--text2)', marginTop: 4 }}>{project.repository} ({project.defaultBranch})</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Link to={`/projects/${projectId}/trigger`} className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Play size={15} /> Trigger Build
+          </Link>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 15, marginBottom: 30 }}>

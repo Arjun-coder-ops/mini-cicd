@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, Settings, Users, Key, Shield, Folder, Activity, LogOut, FileText } from 'lucide-react';
+import { LayoutDashboard, Package, Settings, Users, Key, Shield, Folder, Activity, LogOut, FileText, Play } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 const GLOBAL_NAV = [
@@ -11,6 +11,7 @@ const GLOBAL_NAV = [
 const getProjectNav = (projectId) => [
   { to: `/projects/${projectId}`,              icon: LayoutDashboard, label: 'Overview', end: true },
   { to: `/projects/${projectId}/builds`,       icon: Package,         label: 'Builds' },
+  { to: `/projects/${projectId}/trigger`,      icon: Play,            label: 'Trigger Build' },
   { to: `/projects/${projectId}/deployments`,  icon: Activity,        label: 'Deployments' },
   { to: `/projects/${projectId}/members`,      icon: Users,           label: 'Members' },
   { to: `/projects/${projectId}/api-keys`,     icon: Key,             label: 'API Keys' },

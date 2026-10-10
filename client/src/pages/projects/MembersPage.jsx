@@ -65,10 +65,12 @@ export default function MembersPage() {
           <tbody>
             {members.map(m => (
               <tr key={m._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '12px 15px' }}>{m.userId}</td>
+                <td style={{ padding: '12px 15px' }}>
+                  {typeof m.userId === 'object' ? (m.userId?.email || m.userId?.name || 'User') : m.userId}
+                </td>
                 <td style={{ padding: '12px 15px' }}>{m.role}</td>
                 <td style={{ padding: '12px 15px', textAlign: 'right' }}>
-                  <button onClick={() => handleRemove(m.userId)} className="btn btn-danger">Remove</button>
+                  <button onClick={() => handleRemove(m.userId?._id || m.userId)} className="btn btn-danger">Remove</button>
                 </td>
               </tr>
             ))}

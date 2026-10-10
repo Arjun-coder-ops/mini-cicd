@@ -21,8 +21,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/projects
 router.post('/', async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  let createdProject = null;
   try {
     const { name, repository, defaultBranch = 'main', visibility = 'private' } = req.body;
     
@@ -33,32 +32,33 @@ router.post('/', async (req, res) => {
       slug = `${slug}-${Date.now().toString(36)}`;
     }
 
-    const project = await Project.create([{
+    const project = await Project.create({
       name, slug, ownerId: req.user._id, repository, defaultBranch, visibility
-    }], { session });
+    });
+    createdProject = project;
 
-    await ProjectMember.create([{
-      projectId: project[0]._id,
+    await ProjectMember.create({
+      projectId: project._id,
       userId: req.user._id,
       role: 'OWNER'
-    }], { session });
+    });
 
-    await AuditLog.create([{
-      projectId: project[0]._id,
+    await AuditLog.create({
+      projectId: project._id,
       userId: req.user._id,
       action: 'PROJECT_CREATED',
       resourceType: 'PROJECT',
-      resourceId: project[0]._id.toString(),
+      resourceId: project._id.toString(),
       ipAddress: req.ip,
-    }], { session });
+    });
 
-    await session.commitTransaction();
-    res.status(201).json({ project: project[0] });
+    res.status(201).json({ project });
   } catch (err) {
-    await session.abortTransaction();
+    if (createdProject) {
+      await Project.findByIdAndDelete(createdProject._id).catch(() => {});
+      await ProjectMember.deleteMany({ projectId: createdProject._id }).catch(() => {});
+    }
     res.status(500).json({ error: err.message });
-  } finally {
-    session.endSession();
   }
 });
 
@@ -227,23 +227,26 @@ router.delete('/:projectId/members/:userId', requireProjectRole(['OWNER', 'ADMIN
 
 
 // API Keys
-router.get('/:projectId/keys', requireProjectRole(['OWNER', 'ADMIN']), async (req, res) => {
+// API Keys (supports both /keys and /api-keys)
+const listKeysHandler = async (req, res) => {
   try {
-    const keys = await require('../models/ApiKey').find({ projectId: req.params.projectId, revokedAt: null });
-    res.json({ keys });
+    const projectId = req.params.projectId || req.params.id;
+    const keys = await require('../models/ApiKey').find({ projectId, revokedAt: null });
+    res.json({ keys, apiKeys: keys });
   } catch (err) { res.status(500).json({ error: err.message }); }
-});
+};
 
-router.post('/:projectId/keys', requireProjectRole(['OWNER', 'ADMIN']), async (req, res) => {
+const createKeyHandler = async (req, res) => {
   try {
+    const projectId = req.params.projectId || req.params.id;
     const { name, scopes } = req.body;
     const crypto = require('crypto');
-    const rawKey = 'sk_' + req.params.projectId + '_' + crypto.randomBytes(32).toString('hex');
+    const rawKey = 'sk_' + projectId + '_' + crypto.randomBytes(32).toString('hex');
     const prefix = rawKey.split('_').slice(0,2).join('_');
     const hash = crypto.createHash('sha256').update(rawKey).digest('hex');
     
     const key = await require('../models/ApiKey').create({
-      projectId: req.params.projectId,
+      projectId,
       name,
       keyPrefix: prefix,
       keyHash: hash,
@@ -252,47 +255,61 @@ router.post('/:projectId/keys', requireProjectRole(['OWNER', 'ADMIN']), async (r
     });
     
     await AuditLog.create({
-      projectId: req.params.projectId, userId: req.user._id, action: 'API_KEY_CREATED', resourceType: 'API_KEY', resourceId: key._id.toString(), ipAddress: req.ip
+      projectId, userId: req.user._id, action: 'API_KEY_CREATED', resourceType: 'API_KEY', resourceId: key._id.toString(), ipAddress: req.ip
     });
     
-    res.status(201).json({ key, rawKey });
+    res.status(201).json({ key, apiKey: rawKey, rawKey });
   } catch (err) { res.status(500).json({ error: err.message }); }
-});
+};
 
-router.delete('/:projectId/keys/:keyId', requireProjectRole(['OWNER', 'ADMIN']), async (req, res) => {
+const revokeKeyHandler = async (req, res) => {
   try {
+    const projectId = req.params.projectId || req.params.id;
+    const keyId = req.params.keyId;
     const key = await require('../models/ApiKey').findOneAndUpdate(
-      { _id: req.params.keyId, projectId: req.params.projectId },
+      { _id: keyId, projectId },
       { revokedAt: new Date() },
       { new: true }
     );
     if (!key) return res.status(404).json({ error: 'Key not found' });
     
     await AuditLog.create({
-      projectId: req.params.projectId, userId: req.user._id, action: 'API_KEY_REVOKED', resourceType: 'API_KEY', resourceId: key._id.toString(), ipAddress: req.ip
+      projectId, userId: req.user._id, action: 'API_KEY_REVOKED', resourceType: 'API_KEY', resourceId: key._id.toString(), ipAddress: req.ip
     });
     
     res.json({ message: 'Key revoked' });
   } catch (err) { res.status(500).json({ error: err.message }); }
-});
+};
 
+router.get('/:projectId/keys', requireProjectRole(['OWNER', 'ADMIN']), listKeysHandler);
+router.get('/:projectId/api-keys', requireProjectRole(['OWNER', 'ADMIN']), listKeysHandler);
+router.post('/:projectId/keys', requireProjectRole(['OWNER', 'ADMIN']), createKeyHandler);
+router.post('/:projectId/api-keys', requireProjectRole(['OWNER', 'ADMIN']), createKeyHandler);
+router.delete('/:projectId/keys/:keyId', requireProjectRole(['OWNER', 'ADMIN']), revokeKeyHandler);
+router.delete('/:projectId/api-keys/:keyId', requireProjectRole(['OWNER', 'ADMIN']), revokeKeyHandler);
 
-// Phase 13: Audit Logs
-router.get('/:id/audit', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VIEWER']), async (req, res) => {
+// Audit Logs
+const getAuditHandler = async (req, res) => {
   try {
-    const logs = await AuditLog.find({ projectId: req.params.id }).sort({ createdAt: -1 }).limit(50);
+    const projectId = req.params.projectId || req.params.id;
+    const logs = await AuditLog.find({ projectId }).sort({ createdAt: -1 }).limit(50);
     res.json({ logs });
   } catch (err) { res.status(500).json({ error: err.message }); }
-});
+};
+router.get('/:projectId/audit', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VIEWER']), getAuditHandler);
+router.get('/:id/audit', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VIEWER']), getAuditHandler);
 
-// Phase 7: Deployments
+// Deployments
 const Deployment = require('../models/Deployment');
-router.get('/:id/deployments', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VIEWER']), async (req, res) => {
+const getDeploymentsHandler = async (req, res) => {
   try {
-    const deployments = await Deployment.find({ projectId: req.params.id }).sort({ createdAt: -1 }).limit(50);
+    const projectId = req.params.projectId || req.params.id;
+    const deployments = await Deployment.find({ projectId }).sort({ createdAt: -1 }).limit(50);
     res.json({ deployments });
   } catch (err) { res.status(500).json({ error: err.message }); }
-});
+};
+router.get('/:projectId/deployments', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VIEWER']), getDeploymentsHandler);
+router.get('/:id/deployments', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VIEWER']), getDeploymentsHandler);
 
 module.exports = router;
 

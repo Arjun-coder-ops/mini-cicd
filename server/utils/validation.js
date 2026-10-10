@@ -8,7 +8,7 @@ class ValidationError extends Error {}
 
 const validateRepo = repo => {
   if (typeof repo !== 'string' || !REPO.test(repo)) throw new ValidationError('repo must use owner/repository format');
-  if (!allowedRepos.includes(repo)) throw new ValidationError('repository is not in ALLOWED_REPOS');
+  if (!allowedRepos.includes('*') && !allowedRepos.includes(repo)) throw new ValidationError('repository is not in ALLOWED_REPOS');
   return repo;
 };
 

@@ -1,7 +1,11 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const api = axios.create({ baseURL: '/api' });
+export const apiBase = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api` 
+  : '/api';
+
+const api = axios.create({ baseURL: apiBase, withCredentials: true });
 
 let isRefreshing = false;
 let failedQueue = [];
@@ -33,7 +37,7 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url.includes('/auth/login')) {
+    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/login')) {
       if (isRefreshing) {
         return new Promise(function(resolve, reject) {
           failedQueue.push({ resolve, reject, config: originalRequest });
@@ -44,7 +48,7 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const res = await axios.post('/api/auth/refresh');
+        const res = await axios.post(`${apiBase}/auth/refresh`, {}, { withCredentials: true });
         const newToken = res.data.accessToken;
         setAccessToken(newToken);
         processQueue(null, newToken);

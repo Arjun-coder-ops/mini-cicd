@@ -16,6 +16,7 @@ const { router: secretsRoutes } = require('./routes/secrets');
 const metricsRoutes = require('./routes/metrics');
 
 const app = express();
+app.set('trust proxy', 1);
 
 app.use(cors({ origin: config.clientUrl, credentials: true }));
 app.use(cookieParser());

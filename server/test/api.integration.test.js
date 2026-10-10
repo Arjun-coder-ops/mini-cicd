@@ -107,3 +107,56 @@ test('serves client SPA index.html for non-API web routes when client/dist exist
     assert.equal(res.status, 404);
   }
 });
+
+test('project creation works on standalone MongoDB without replica set transactions', async () => {
+  const res = await request(app)
+    .post('/api/projects')
+    .set(auth)
+    .send({ name: 'Standalone Test', repository: 'acme/demo', defaultBranch: 'main' });
+  assert.equal(res.status, 201);
+  assert.equal(res.body.project.name, 'Standalone Test');
+});
+
+test('api-keys, secrets, audit, and deployments routes work as expected', async () => {
+  // Test /api-keys
+  const keyRes = await request(app)
+    .post(`/api/projects/${testProject._id}/api-keys`)
+    .set(auth)
+    .send({ name: 'CI Token' });
+  assert.equal(keyRes.status, 201);
+  assert.ok(keyRes.body.apiKey);
+
+  const listKeys = await request(app)
+    .get(`/api/projects/${testProject._id}/api-keys`)
+    .set(auth);
+  assert.equal(listKeys.status, 200);
+  assert.ok(Array.isArray(listKeys.body.apiKeys));
+
+  // Test /secrets
+  const secretRes = await request(app)
+    .post(`/api/projects/${testProject._id}/secrets`)
+    .set(auth)
+    .send({ name: 'TEST_SECRET', value: 'secret_value_123' });
+  assert.equal(secretRes.status, 201);
+
+  const listSecrets = await request(app)
+    .get(`/api/projects/${testProject._id}/secrets`)
+    .set(auth);
+  assert.equal(listSecrets.status, 200);
+  assert.ok(Array.isArray(listSecrets.body.secrets));
+
+  // Test /audit
+  const auditRes = await request(app)
+    .get(`/api/projects/${testProject._id}/audit`)
+    .set(auth);
+  assert.equal(auditRes.status, 200);
+  assert.ok(Array.isArray(auditRes.body.logs));
+
+  // Test /deployments
+  const deployRes = await request(app)
+    .get(`/api/projects/${testProject._id}/deployments`)
+    .set(auth);
+  assert.equal(deployRes.status, 200);
+  assert.ok(Array.isArray(deployRes.body.deployments));
+});
+

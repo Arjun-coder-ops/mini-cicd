@@ -6,8 +6,12 @@ if (process.env.NODE_ENV === 'test') {
   connection = new RedisMock({ maxRetriesPerRequest: null });
 } else {
   const Redis = require('ioredis');
-  if (process.env.REDIS_URL) {
-    connection = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: null });
+  let redisUrl = process.env.REDIS_URL ? process.env.REDIS_URL.trim() : '';
+  if (redisUrl) {
+    // Sanitize in case CLI command was accidentally pasted (e.g. 'redis-cli -u redis://...')
+    const match = redisUrl.match(/redis[s]?:\/\/[^\s'"]+$/i);
+    if (match) redisUrl = match[0];
+    connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
   } else {
     connection = new Redis({
       host: process.env.REDIS_HOST || '127.0.0.1',

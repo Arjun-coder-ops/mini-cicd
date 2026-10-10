@@ -16,10 +16,10 @@ export default function DashboardPage() {
       api.get('/projects'),
       api.get('/metrics').catch(() => ({ data: '' })) // if metrics fail, ignore
     ]).then(([projRes, metricsRes]) => {
-      setProjects(projRes.data.projects.slice(0, 5)); // show top 5
+      setProjects((projRes.data.projects || []).slice(0, 5)); // show top 5
       
       // extremely basic parsing of prometheus metrics
-      const lines = typeof metricsRes.data === 'string' ? metricsRes.data.split('\\n') : [];
+      const lines = typeof metricsRes.data === 'string' ? metricsRes.data.split('\n') : [];
       const m = {};
       lines.forEach(l => {
         if (!l.startsWith('#') && l.includes(' ')) {

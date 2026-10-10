@@ -15,10 +15,12 @@ const generateTokens = (userId) => {
 };
 
 const setRefreshTokenCookie = (res, token) => {
+  const isHttps = process.env.COOKIE_SECURE === 'true' || (process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== 'false');
+  const sameSite = process.env.COOKIE_SAME_SITE || (isHttps ? 'none' : 'lax');
   res.cookie('refreshToken', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: isHttps,
+    sameSite,
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 };

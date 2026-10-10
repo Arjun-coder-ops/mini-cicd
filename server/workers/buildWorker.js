@@ -95,7 +95,7 @@ const processor = async (job) => {
 
     
     const Project = require('../models/Project');
-    const project = await Project.findById(build.projectId);
+    const project = build.projectId ? await Project.findById(build.projectId) : null;
     const pipelineConfigFile = project ? (project.pipelineConfig || '.ci.yml') : '.ci.yml';
     
     let pipeline = null;

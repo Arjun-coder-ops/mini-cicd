@@ -14,14 +14,16 @@ export default function ApiKeysPage() {
   }, [projectId]);
 
   const fetchKeys = () => {
-    api.get(`/projects/${projectId}/api-keys`).then(res => setKeys(res.data.apiKeys)).catch(console.error);
+    api.get(`/projects/${projectId}/api-keys`)
+      .then(res => setKeys(res.data.apiKeys || res.data.keys || []))
+      .catch(console.error);
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
       const res = await api.post(`/projects/${projectId}/api-keys`, { name });
-      setNewKey(res.data.apiKey);
+      setNewKey(res.data.apiKey || res.data.rawKey);
       toast.success('API Key created');
       fetchKeys();
     } catch (err) { toast.error(err.response?.data?.error || 'Failed'); }

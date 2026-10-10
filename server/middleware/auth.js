@@ -5,17 +5,30 @@ const ProjectMember = require('../models/ProjectMember');
 const ApiKey = require('../models/ApiKey');
 const crypto = require('crypto');
 
+const { tokensMatch } = require('../utils/auth');
+
 const requireAuth = async (req, res, next) => {
   try {
+    let token = null;
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (typeof req.query.token === 'string') {
+      token = req.query.token;
+    }
+
+    if (!token) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const token = authHeader.split(' ')[1];
+    // Check system master token
+    if (config.apiToken && tokensMatch(token, config.apiToken)) {
+      req.user = { _id: 'system', name: 'System', role: 'ADMIN' };
+      return next();
+    }
 
     // Check if it's an API Key (starts with prefix followed by _)
-    // Let's assume API keys have format: sk_projectId_randomString
+    // Format: sk_projectId_randomString
     if (token.startsWith('sk_')) {
       const parts = token.split('_');
       if (parts.length === 3) {
@@ -57,7 +70,26 @@ const requireAuth = async (req, res, next) => {
 const requireProjectRole = (allowedRoles) => {
   return async (req, res, next) => {
     try {
-      const projectId = req.params.projectId || req.body.projectId || req.query.projectId;
+      // System admin token bypasses project membership check
+      if (req.user && req.user._id === 'system') {
+        return next();
+      }
+
+      let projectId = req.params.projectId || req.query.projectId || req.body.projectId;
+      if (!projectId && req.params.id) {
+        if (req.baseUrl && req.baseUrl.includes('/builds')) {
+          const mongoose = require('mongoose');
+          if (!mongoose.isValidObjectId(req.params.id)) {
+            return res.status(400).json({ error: 'Invalid build ID' });
+          }
+          const Build = require('../models/Build');
+          const b = await Build.findById(req.params.id);
+          if (b && b.projectId) projectId = b.projectId.toString();
+        } else {
+          projectId = req.params.id;
+        }
+      }
+
       if (!projectId) return res.status(400).json({ error: 'Project ID required' });
 
       // If using API key, verify scope/project
@@ -65,7 +97,6 @@ const requireProjectRole = (allowedRoles) => {
         if (req.apiKey.projectId.toString() !== projectId.toString()) {
           return res.status(403).json({ error: 'API key not valid for this project' });
         }
-        // Further scope checks could go here
         return next();
       }
 

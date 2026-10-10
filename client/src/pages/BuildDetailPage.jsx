@@ -13,7 +13,7 @@ import {
   ArrowDown,
   Download,
 } from 'lucide-react';
-import api from '../utils/api';
+import api, { getAccessToken, apiBase } from '../utils/api';
 import { fmtDuration, fmtTime } from '../utils/helpers';
 import StatusIcon from '../components/ui/StatusIcon';
 import toast from 'react-hot-toast';
@@ -84,7 +84,7 @@ export default function BuildDetailPage() {
 
     const token = getAccessToken();
     const qs = `projectId=${projectId}` + (token ? `&token=${encodeURIComponent(token)}` : '');
-    const es = new EventSource(`/api/builds/${buildId}/stream?${qs}`);
+    const es = new EventSource(`${apiBase}/builds/${buildId}/stream?${qs}`);
     esRef.current = es;
 
     es.onmessage = (e) => {
@@ -158,7 +158,7 @@ export default function BuildDetailPage() {
     try {
       const { data } = await api.post(`/builds/${id}/retry?projectId=${projectId}`);
       toast.success(`Retry started — Build #${data.build.number}`);
-      navigate(`/builds/${data.build._id}`);
+      navigate(`/projects/${projectId}/builds/${data.build._id}`);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to retry');
     }
@@ -192,7 +192,7 @@ export default function BuildDetailPage() {
   return (
     <div className="fade-in">
       {/* Back */}
-      <button className="btn btn-ghost" onClick={() => navigate('/builds')}
+      <button className="btn btn-ghost" onClick={() => navigate(`/projects/${projectId}/builds`)}
         style={{ marginBottom: 18, padding: '6px 12px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
         <ArrowLeft size={14} aria-hidden="true" /> All builds
       </button>

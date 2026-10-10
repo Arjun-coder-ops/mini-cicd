@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const crypto = require('crypto');
 const Secret = require('../models/Secret');
 const { requireAuth, requireProjectRole } = require('../middleware/auth');
@@ -48,45 +48,55 @@ function decrypt(text) {
 }
 
 // Routes
-router.get('/', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER']), async (req, res) => {
+const listSecretsHandler = async (req, res) => {
   try {
-    const secrets = await Secret.find({ projectId: req.query.projectId }).select('-value');
-    res.json(secrets);
+    const projectId = req.params.projectId || req.query.projectId;
+    const secrets = await Secret.find({ projectId }).select('-encryptedValue');
+    res.json({ secrets });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
+};
 
-router.post('/', requireProjectRole(['OWNER', 'ADMIN']), async (req, res) => {
+const createSecretHandler = async (req, res) => {
   try {
-    const { name, value, projectId } = req.body;
-    const encryptedValue = encrypt(value);
+    const projectId = req.params.projectId || req.body.projectId;
+    const { name, value, environment = 'all' } = req.body;
+    const encrypted = encrypt(value);
     
     // Upsert
-    let secret = await Secret.findOne({ name, projectId });
+    let secret = await Secret.findOne({ name, projectId, environment });
     if (secret) {
-      secret.value = encryptedValue;
+      secret.encryptedValue = encrypted;
     } else {
-      secret = new Secret({ name, value: encryptedValue, projectId, createdBy: req.user._id });
+      secret = new Secret({ name, encryptedValue: encrypted, environment, projectId, createdBy: req.user._id });
     }
     await secret.save();
     
     const safeSecret = secret.toObject();
-    delete safeSecret.value;
-    res.status(201).json(safeSecret);
+    delete safeSecret.encryptedValue;
+    res.status(201).json({ secret: safeSecret, ...safeSecret });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
+};
 
-router.delete('/:id', requireProjectRole(['OWNER', 'ADMIN']), async (req, res) => {
+const deleteSecretHandler = async (req, res) => {
   try {
-    await Secret.findByIdAndDelete(req.params.id);
+    const id = req.params.secretId || req.params.id;
+    await Secret.findByIdAndDelete(id);
     res.status(204).end();
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
+};
+
+router.get('/:projectId/secrets', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER']), listSecretsHandler);
+router.get('/', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER']), listSecretsHandler);
+router.post('/:projectId/secrets', requireProjectRole(['OWNER', 'ADMIN']), createSecretHandler);
+router.post('/', requireProjectRole(['OWNER', 'ADMIN']), createSecretHandler);
+router.delete('/:projectId/secrets/:secretId', requireProjectRole(['OWNER', 'ADMIN']), deleteSecretHandler);
+router.delete('/:id', requireProjectRole(['OWNER', 'ADMIN']), deleteSecretHandler);
 
 module.exports = { router, encrypt, decrypt };
 
