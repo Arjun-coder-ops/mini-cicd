@@ -42,6 +42,7 @@ const buildSchema = new mongoose.Schema({
   failureReason: { type: String },
   idempotencyKey: { type: String },
   logFile: { type: String }, // For backward compatibility with Phase 0 logic
+  logs: { type: String, default: '' },
 }, { timestamps: true });
 
 // Make it unique per project, but omit unique constraint if projectId is missing for backward compat

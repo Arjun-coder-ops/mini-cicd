@@ -177,11 +177,14 @@ router.get('/:id/logs', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VIEW
     validateBuildId(req.params.id);
     const build = await Build.findById(req.params.id);
     if (!build) return res.status(404).json({ error: 'Build not found' });
-    if (!build.logFile || !fs.existsSync(build.logFile))
-      return res.json({ logs: '' });
-
-    const logs = fs.readFileSync(build.logFile, 'utf8');
-    res.json({ logs });
+    if (build.logFile && fs.existsSync(build.logFile)) {
+      const logs = fs.readFileSync(build.logFile, 'utf8');
+      return res.json({ logs });
+    }
+    if (build.logs) {
+      return res.json({ logs: build.logs });
+    }
+    res.json({ logs: '' });
   } catch (err) {
     if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
     res.status(500).json({ error: err.message });
@@ -204,8 +207,14 @@ router.get('/:id/stream', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VI
 
   // If build already finished, send the full log and close
   if (['success', 'failed', 'cancelled', 'timed_out'].includes(build.status)) {
+    let logContent = '';
     if (build.logFile && fs.existsSync(build.logFile)) {
-      const lines = fs.readFileSync(build.logFile, 'utf8').split('\n').filter(Boolean);
+      logContent = fs.readFileSync(build.logFile, 'utf8');
+    } else if (build.logs) {
+      logContent = build.logs;
+    }
+    if (logContent) {
+      const lines = logContent.split('\n').filter(Boolean);
       lines.forEach(line => res.write(`data: ${JSON.stringify({ line })}\n\n`));
     }
     res.write(`event: done\ndata: ${JSON.stringify({ status: build.status })}\n\n`);
@@ -215,6 +224,9 @@ router.get('/:id/stream', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VI
   // Stream existing log first (catch-up)
   if (build.logFile && fs.existsSync(build.logFile)) {
     const existing = fs.readFileSync(build.logFile, 'utf8').split('\n').filter(Boolean);
+    existing.forEach(line => res.write(`data: ${JSON.stringify({ line })}\n\n`));
+  } else if (build.logs) {
+    const existing = build.logs.split('\n').filter(Boolean);
     existing.forEach(line => res.write(`data: ${JSON.stringify({ line })}\n\n`));
   }
 

@@ -7,9 +7,13 @@ const SHA = /^(HEAD|[a-fA-F0-9]{7,64})$/;
 class ValidationError extends Error {}
 
 const validateRepo = repo => {
-  if (typeof repo !== 'string' || !REPO.test(repo)) throw new ValidationError('repo must use owner/repository format');
-  if (!allowedRepos.includes('*') && !allowedRepos.includes(repo)) throw new ValidationError('repository is not in ALLOWED_REPOS');
-  return repo;
+  if (typeof repo !== 'string') throw new ValidationError('repo must use owner/repository format');
+  const normalized = repo.trim().replace(/^https?:\/\/[^\/]+\//i, '').replace(/\.git$/i, '');
+  if (!REPO.test(normalized)) throw new ValidationError('repo must use owner/repository format');
+  if (allowedRepos.length > 0 && !allowedRepos.includes('*') && !allowedRepos.includes(normalized)) {
+    throw new ValidationError('repository is not in ALLOWED_REPOS');
+  }
+  return normalized;
 };
 
 const validateBranch = branch => {

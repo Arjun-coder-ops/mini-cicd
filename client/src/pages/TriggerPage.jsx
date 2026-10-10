@@ -47,11 +47,12 @@ export default function TriggerPage() {
 
   const handleTrigger = async (e) => {
     e.preventDefault();
-    if (!form.repo.trim()) { toast.error('Repository is required'); return; }
-    if (!form.repo.includes('/')) { toast.error('Format must be owner/repo'); return; }
+    const cleanRepo = form.repo.trim().replace(/^https?:\/\/[^\/]+\//i, '').replace(/\.git$/i, '');
+    if (!cleanRepo) { toast.error('Repository is required'); return; }
+    if (!cleanRepo.includes('/')) { toast.error('Format must be owner/repo'); return; }
     setLoading(true);
     try {
-      const { data } = await api.post('/builds/trigger', { ...form, projectId });
+      const { data } = await api.post('/builds/trigger', { ...form, repo: cleanRepo, projectId });
       toast.success(`Build #${data.build.number} started!`);
       navigate(`/projects/${projectId}/builds/${data.build._id}`);
     } catch (err) {

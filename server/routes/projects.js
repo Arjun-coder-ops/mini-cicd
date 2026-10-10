@@ -24,6 +24,7 @@ router.post('/', async (req, res) => {
   let createdProject = null;
   try {
     const { name, repository, defaultBranch = 'main', visibility = 'private' } = req.body;
+    const cleanRepo = (repository || '').trim().replace(/^https?:\/\/[^\/]+\//i, '').replace(/\.git$/i, '');
     
     // basic slug generation
     let slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -33,7 +34,7 @@ router.post('/', async (req, res) => {
     }
 
     const project = await Project.create({
-      name, slug, ownerId: req.user._id, repository, defaultBranch, visibility
+      name, slug, ownerId: req.user._id, repository: cleanRepo, defaultBranch, visibility
     });
     createdProject = project;
 

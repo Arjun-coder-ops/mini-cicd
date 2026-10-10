@@ -5,18 +5,17 @@ ENV NODE_ENV=production
 
 WORKDIR /app
 
-# Install dependencies for native tools if needed
-# The worker needs to run node/python directly? Wait, the API doesn't. 
-# Oh wait, the worker container might need Python if it executes Python.
-# I'll create a separate Dockerfile.worker for the worker.
+# Install native tools needed by CI/CD worker (git, python, rsync, openssh, bash)
+RUN apk add --no-cache git rsync openssh python3 py3-pip bash && \
+    git config --system --add safe.directory '*'
 
 COPY package*.json ./
 RUN npm ci --only=production --legacy-peer-deps
 
 COPY . .
 
-# Run as non-root
-RUN chown -R node:node /app
+# Ensure builds directory exists and is writable by node user
+RUN mkdir -p /app/.tmp/cicd-builds && chown -R node:node /app
 USER node
 
 EXPOSE 3000
