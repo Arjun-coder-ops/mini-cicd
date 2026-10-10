@@ -2,6 +2,8 @@ const express = require('express');
 const Project = require('../models/Project');
 const ProjectMember = require('../models/ProjectMember');
 const AuditLog = require('../models/AuditLog');
+const Build = require('../models/Build');
+const Deployment = require('../models/Deployment');
 const { requireAuth, requireProjectRole } = require('../middleware/auth');
 const mongoose = require('mongoose');
 
@@ -67,7 +69,24 @@ router.post('/', async (req, res) => {
 router.get('/:projectId', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VIEWER']), async (req, res) => {
   try {
     const project = await Project.findById(req.params.projectId);
-    res.json({ project });
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const [totalBuilds, successfulBuilds, failedBuilds, deploymentsCount] = await Promise.all([
+      Build.countDocuments({ projectId: project._id }),
+      Build.countDocuments({ projectId: project._id, status: 'success' }),
+      Build.countDocuments({ projectId: project._id, status: 'failed' }),
+      Deployment.countDocuments({ projectId: project._id }),
+    ]);
+
+    const projectObj = project.toObject();
+    projectObj.stats = {
+      totalBuilds,
+      successfulBuilds,
+      failedBuilds,
+      deployments: deploymentsCount,
+    };
+
+    res.json({ project: projectObj });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

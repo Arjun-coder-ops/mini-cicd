@@ -73,6 +73,28 @@ const processor = async (job) => {
   try {
     await fsp.mkdir(config.buildsDir, { recursive: true });
     await log(buildId, `Build #${build.number}: ${build.repo}@${build.branch}`, logFile);
+
+    // Decrypt and inject project secrets into pipeline environment
+    const buildEnv = { ...process.env };
+    if (build.projectId) {
+      try {
+        const Secret = require('../models/Secret');
+        const { decrypt } = require('../routes/secrets');
+        const secrets = await Secret.find({ projectId: build.projectId });
+        for (const secret of secrets) {
+          try {
+            buildEnv[secret.name] = decrypt(secret.encryptedValue);
+          } catch (decErr) {
+            console.error(`Failed to decrypt secret ${secret.name}:`, decErr.message);
+          }
+        }
+        if (secrets.length > 0) {
+          await log(buildId, `Injected ${secrets.length} encrypted project secret(s) into pipeline environment`, logFile);
+        }
+      } catch (secErr) {
+        console.error('Error loading project secrets:', secErr.message);
+      }
+    }
     
     const step = async (name, fn) => { 
       state.stepTimedOut = false; 
@@ -148,7 +170,7 @@ const processor = async (job) => {
           if (stepConfig.command) {
              const args = stepConfig.command.split(' ');
              const cmd = args.shift();
-             await runCommand(cmd, args, { cwd: workDir, shell: true }, buildId, logFile, state);
+             await runCommand(cmd, args, { cwd: workDir, shell: true, env: buildEnv }, buildId, logFile, state);
           
           } else if (stepConfig.environment) {
              // Deployment step
@@ -170,7 +192,7 @@ const processor = async (job) => {
                  if (!config.deployKnownHostsPath || !fs.existsSync(config.deployKnownHostsPath)) throw new Error('DEPLOY_KNOWN_HOSTS_PATH needed');
                  const dist = fs.existsSync(path.join(workDir, 'dist')) ? `${path.join(workDir, 'dist')}/` : `${workDir}/`;
                  const ssh = `ssh -i ${DEPLOY_KEY_PATH} -o UserKnownHostsFile=${config.deployKnownHostsPath} -o StrictHostKeyChecking=yes`;
-                 await runCommand('rsync', ['-az', '--delete', '-e', ssh, dist, `${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}`], {}, buildId, logFile, state);
+                 await runCommand('rsync', ['-az', '--delete', '-e', ssh, dist, `${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}`], { env: buildEnv }, buildId, logFile, state);
                }
                
                deployment.status = 'success';
@@ -198,21 +220,21 @@ const processor = async (job) => {
       await step('install', async () => {
         if (hasPackage) {
           try {
-            if (hasLock) await runCommand('npm', ['ci', '--prefer-offline'], { cwd: workDir }, buildId, logFile, state);
-            else await runCommand('npm', ['install', '--prefer-offline'], { cwd: workDir }, buildId, logFile, state);
+            if (hasLock) await runCommand('npm', ['ci', '--prefer-offline'], { cwd: workDir, env: buildEnv }, buildId, logFile, state);
+            else await runCommand('npm', ['install', '--prefer-offline'], { cwd: workDir, env: buildEnv }, buildId, logFile, state);
           } catch (npmErr) {
             await log(buildId, `Warning: npm ci/install preferred offline failed, trying npm install: ${npmErr.message}`, logFile);
-            await runCommand('npm', ['install', '--legacy-peer-deps'], { cwd: workDir }, buildId, logFile, state);
+            await runCommand('npm', ['install', '--legacy-peer-deps'], { cwd: workDir, env: buildEnv }, buildId, logFile, state);
           }
         } else if (hasRequirements) {
           try {
-            await runCommand('pip', ['install', '--no-cache-dir', '--break-system-packages', '-r', 'requirements.txt'], { cwd: workDir }, buildId, logFile, state);
+            await runCommand('pip', ['install', '--no-cache-dir', '--break-system-packages', '-r', 'requirements.txt'], { cwd: workDir, env: buildEnv }, buildId, logFile, state);
           } catch (pipErr) {
             await log(buildId, `Pip install warning: ${pipErr.message}. Continuing pipeline.`, logFile);
           }
         } else if (hasPyproject) {
           try {
-            await runCommand('pip', ['install', '--no-cache-dir', '--break-system-packages', '.'], { cwd: workDir }, buildId, logFile, state);
+            await runCommand('pip', ['install', '--no-cache-dir', '--break-system-packages', '.'], { cwd: workDir, env: buildEnv }, buildId, logFile, state);
           } catch (pipErr) {
             await log(buildId, `Pip install warning: ${pipErr.message}. Continuing pipeline.`, logFile);
           }
@@ -225,7 +247,7 @@ const processor = async (job) => {
         if (hasPackage) {
           const pkg = JSON.parse(await fsp.readFile(path.join(workDir, 'package.json'), 'utf8'));
           if (pkg.scripts?.build) {
-            await runCommand('npm', ['run', 'build'], { cwd: workDir }, buildId, logFile, state);
+            await runCommand('npm', ['run', 'build'], { cwd: workDir, env: buildEnv }, buildId, logFile, state);
           } else {
             await log(buildId, 'No build script found in package.json; build skipped', logFile);
           }
@@ -239,7 +261,7 @@ const processor = async (job) => {
           const pkg = JSON.parse(await fsp.readFile(path.join(workDir, 'package.json'), 'utf8'));
           if (pkg.scripts?.test && !pkg.scripts.test.includes('no test')) {
             try {
-              await runCommand('npm', ['test', '--', '--passWithNoTests'], { cwd: workDir }, buildId, logFile, state);
+              await runCommand('npm', ['test', '--', '--passWithNoTests'], { cwd: workDir, env: buildEnv }, buildId, logFile, state);
             } catch (testErr) {
               await log(buildId, `Test execution note: ${testErr.message}`, logFile);
             }
@@ -248,7 +270,7 @@ const processor = async (job) => {
           }
         } else if (hasRequirements && fs.existsSync(path.join(workDir, 'tests'))) {
           try {
-            await runCommand('pytest', ['tests', '-q'], { cwd: workDir }, buildId, logFile, state);
+            await runCommand('pytest', ['tests', '-q'], { cwd: workDir, env: buildEnv }, buildId, logFile, state);
           } catch (pyErr) {
             await log(buildId, `Python tests completed or skipped: ${pyErr.message}`, logFile);
           }
@@ -258,15 +280,49 @@ const processor = async (job) => {
       });
 
       await step('deploy', async () => {
-        const { DEPLOY_HOST, DEPLOY_USER = 'ubuntu', DEPLOY_PATH = '/var/www/app', DEPLOY_KEY_PATH } = process.env;
-        if (!DEPLOY_HOST || !DEPLOY_KEY_PATH) {
-          await log(buildId, 'Deployment simulated (no target host configured)', logFile);
-          return;
+        let deployment = null;
+        if (build.projectId) {
+          const Deployment = require('../models/Deployment');
+          deployment = await Deployment.create({
+            projectId: build.projectId,
+            buildId: build._id,
+            environment: 'production',
+            commit: build.commit || 'HEAD',
+            startedAt: new Date(),
+            status: 'running',
+          }).catch(err => {
+            console.error('Failed to create deployment record:', err.message);
+            return null;
+          });
         }
-        if (!config.deployKnownHostsPath || !fs.existsSync(config.deployKnownHostsPath)) throw new Error('DEPLOY_KNOWN_HOSTS_PATH needed');
-        const dist = fs.existsSync(path.join(workDir, 'dist')) ? `${path.join(workDir, 'dist')}/` : `${workDir}/`;
-        const ssh = `ssh -i ${DEPLOY_KEY_PATH} -o UserKnownHostsFile=${config.deployKnownHostsPath} -o StrictHostKeyChecking=yes`;
-        await runCommand('rsync', ['-az', '--delete', '-e', ssh, dist, `${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}`], {}, buildId, logFile, state);
+
+        try {
+          const { DEPLOY_HOST, DEPLOY_USER = 'ubuntu', DEPLOY_PATH = '/var/www/app', DEPLOY_KEY_PATH } = process.env;
+          if (!DEPLOY_HOST || !DEPLOY_KEY_PATH) {
+            await log(buildId, 'Deployment simulated (no target host configured)', logFile);
+          } else {
+            if (!config.deployKnownHostsPath || !fs.existsSync(config.deployKnownHostsPath)) throw new Error('DEPLOY_KNOWN_HOSTS_PATH needed');
+            const dist = fs.existsSync(path.join(workDir, 'dist')) ? `${path.join(workDir, 'dist')}/` : `${workDir}/`;
+            const ssh = `ssh -i ${DEPLOY_KEY_PATH} -o UserKnownHostsFile=${config.deployKnownHostsPath} -o StrictHostKeyChecking=yes`;
+            await runCommand('rsync', ['-az', '--delete', '-e', ssh, dist, `${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}`], { env: buildEnv }, buildId, logFile, state);
+          }
+
+          if (deployment) {
+            deployment.status = 'success';
+            deployment.finishedAt = new Date();
+            deployment.duration = deployment.finishedAt - deployment.startedAt;
+            await deployment.save();
+            await log(buildId, `Recorded deployment in environment 'production'`, logFile);
+          }
+        } catch (err) {
+          if (deployment) {
+            deployment.status = 'failed';
+            deployment.finishedAt = new Date();
+            deployment.duration = deployment.finishedAt - deployment.startedAt;
+            await deployment.save();
+          }
+          throw err;
+        }
       });
     }
 
