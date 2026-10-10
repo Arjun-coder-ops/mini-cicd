@@ -320,7 +320,6 @@ router.get('/:projectId/audit', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER
 router.get('/:id/audit', requireProjectRole(['OWNER', 'ADMIN', 'DEVELOPER', 'VIEWER']), getAuditHandler);
 
 // Deployments
-const Deployment = require('../models/Deployment');
 const getDeploymentsHandler = async (req, res) => {
   try {
     const projectId = req.params.projectId || req.params.id;
