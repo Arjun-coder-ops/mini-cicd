@@ -30,5 +30,5 @@ module.exports = {
   deployKnownHostsPath: process.env.DEPLOY_KNOWN_HOSTS_PATH || '',
   gitBaseUrl: (process.env.GIT_BASE_URL || 'https://github.com').replace(/\/$/, ''),
   apiToken: process.env.API_AUTH_TOKEN || '',
-  allowedRepos: (process.env.ALLOWED_REPOS || '').split(',').map(r => r.trim()).filter(Boolean)
+  allowedRepos: (process.env.ALLOWED_REPOS || '*').split(',').map(r => r.trim()).filter(Boolean)
 };
